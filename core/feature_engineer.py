@@ -180,19 +180,19 @@ class FeatureEngineer:
             df['bos_direction'] = 0
             df['choch_direction'] = 0
             
-            # Marcar BOS
+            # Marcar BOS usando .loc con máscara booleana
             for bos in bos_data:
                 idx = bos.get('index', -1)
                 if 0 <= idx < len(df):
-                    df.iloc[idx, df.columns.get_loc('has_bos')] = 1
-                    df.iloc[idx, df.columns.get_loc('bos_direction')] = 1 if bos.get('direction') == 'BULLISH' else -1
+                    df.loc[df.index[idx], 'has_bos'] = 1
+                    df.loc[df.index[idx], 'bos_direction'] = 1 if bos.get('direction') == 'BULLISH' else -1
             
-            # Marcar CHoCH
+            # Marcar CHoCH usando .loc con máscara booleana
             for choch in choch_data:
                 idx = choch.get('index', -1)
                 if 0 <= idx < len(df):
-                    df.iloc[idx, df.columns.get_loc('has_choch')] = 1
-                    df.iloc[idx, df.columns.get_loc('choch_direction')] = 1 if choch.get('direction') == 'BULLISH' else -1
+                    df.loc[df.index[idx], 'has_choch'] = 1
+                    df.loc[df.index[idx], 'choch_direction'] = 1 if choch.get('direction') == 'BULLISH' else -1
             
             # Distancia desde último BOS/CHoCH
             df['bars_since_bos'] = self._bars_since_event(df['has_bos'])
@@ -299,13 +299,13 @@ class FeatureEngineer:
                     strength = pattern.get('strength', 0)
                     direction = pattern.get('direction', '')
                     
-                    df.iloc[idx, df.columns.get_loc('pattern_strength')] = strength
-                    df.iloc[idx, df.columns.get_loc('pattern_type')] = pattern_type
+                    df.loc[df.index[idx], 'pattern_strength'] = strength
+                    df.loc[df.index[idx], 'pattern_type'] = pattern_type
                     
                     if direction == 'BULLISH':
-                        df.iloc[idx, df.columns.get_loc('has_bullish_pattern')] = 1
+                        df.loc[df.index[idx], 'has_bullish_pattern'] = 1
                     elif direction == 'BEARISH':
-                        df.iloc[idx, df.columns.get_loc('has_bearish_pattern')] = 1
+                        df.loc[df.index[idx], 'has_bearish_pattern'] = 1
             
             # Patrón neto
             df['pattern_net'] = df['has_bullish_pattern'] - df['has_bearish_pattern']
@@ -486,3 +486,43 @@ class FeatureEngineer:
         adx = dx.rolling(window=period).mean()
         
         return adx
+    
+    
+    def get_feature_names(self) -> List[str]:
+        """Obtener nombres de todas las características"""
+        return [
+            # Básicas
+            'range', 'body', 'upper_wick', 'lower_wick',
+            'body_to_range', 'upper_wick_ratio', 'lower_wick_ratio',
+            'is_bullish', 'price_change', 'high_change', 'low_change',
+            
+            # Indicadores técnicos
+            'sma_9', 'sma_20', 'sma_50', 'sma_200',
+            'ema_9', 'ema_20', 'ema_50', 'ema_200',
+            'rsi_14', 'macd', 'macd_signal', 'macd_hist',
+            'bb_upper', 'bb_middle', 'bb_lower', 'bb_width', 'bb_position',
+            'atr_14', 'stoch_k', 'stoch_d', 'adx_14',
+            
+            # Estructura
+            'structure_numeric', 'structure_strength',
+            'has_bos', 'has_choch', 'bos_direction', 'choch_direction',
+            'bars_since_bos', 'bars_since_choch',
+            
+            # Zonas
+            'in_demand_zone', 'in_supply_zone', 'zone_strength',
+            'distance_to_nearest_zone', 'zone_ratio',
+            
+            # Patrones
+            'has_bullish_pattern', 'has_bearish_pattern', 'pattern_strength',
+            'pattern_net', 'bars_since_bullish_pattern', 'bars_since_bearish_pattern',
+            
+            # Temporales
+            'hour', 'day_of_week', 'is_london_session', 'is_ny_session', 'is_asian_session',
+            
+            # Volatilidad
+            'volatility_10', 'volatility_20', 'volatility_ratio',
+            'true_range', 'avg_range_10', 'range_ratio',
+            
+            # Volumen
+            'volume_sma_20', 'volume_ratio', 'volume_change', 'obv'
+        ]
