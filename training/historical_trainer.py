@@ -1,240 +1,247 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split, TimeSeriesSplit
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-import lightgbm as lgb
-import pickle
-import json
-import logging
+import os
 from datetime import datetime
+import joblib
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.preprocessing import StandardScaler
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class HistoricalTrainer:
-    def __init__(self, config_path='config/xm_config.json'):
-        with open(config_path, 'r') as f:
-            self.config = json.load(f)
-        
-        self.modelo = None
-        self.scaler = None
-        self.feature_importance = None
-        self.metricas = {}
-        
-        logging.basicConfig(
-            filename='logs/historical_trainer.log',
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s'
-        )
-        self.logger = logging.getLogger(__name__)
+    """
+    Entrenador de modelo con datos históricos
+    """
     
-    def preparar_datos(self, df):
-        """Prepara datos para entrenamiento"""
-        self.logger.info("📊 Preparando datos para entrenamiento...")
+    def __init__(self, config=None):
+        """
+        Inicializa el entrenador histórico
         
-        # Separar features y target
-        feature_cols = [col for col in df.columns if col not in [
-            'time', 'target', 'precio_futuro', 'open', 'high', 'low', 'close',
-            'tick_volume', 'spread', 'real_volume'
-        ]]
-        
-        X = df[feature_cols].values
-        y = df['target'].values
-        
-        self.logger.info(f"   Features: {len(feature_cols)}")
-        self.logger.info(f"   Muestras: {len(X)}")
-        self.logger.info(f"   Distribución target: CALL={np.sum(y==1)} ({np.mean(y)*100:.1f}%), PUT={np.sum(y==0)} ({(1-np.mean(y))*100:.1f}%)")
-        
-        return X, y, feature_cols
-    
-    def entrenar_modelo(self, X, y, feature_names):
-        """Entrena modelo con validación temporal"""
-        self.logger.info("🎓 Iniciando entrenamiento del modelo...")
-        
-        print(f"\n{'='*60}")
-        print(f"🎓 ENTRENAMIENTO HISTÓRICO")
-        print(f"{'='*60}")
-        print(f"Total de muestras: {len(X)}")
-        print(f"Total de features: {X.shape[1]}")
-        print(f"{'='*60}\n")
-        
-        # Normalizar datos
-        self.scaler = StandardScaler()
-        X_scaled = self.scaler.fit_transform(X)
-        
-        # Split temporal (80% train, 20% test)
-        split_idx = int(len(X_scaled) * 0.8)
-        X_train = X_scaled[:split_idx]
-        X_test = X_scaled[split_idx:]
-        y_train = y[:split_idx]
-        y_test = y[split_idx:]
-        
-        print(f"📊 División de datos:")
-        print(f"   Train: {len(X_train)} muestras ({len(X_train)/len(X)*100:.1f}%)")
-        print(f"   Test: {len(X_test)} muestras ({len(X_test)/len(X)*100:.1f}%)")
-        print(f"{'─'*60}\n")
-        
-        # Crear dataset de LightGBM
-        train_data = lgb.Dataset(X_train, label=y_train)
-        test_data = lgb.Dataset(X_test, label=y_test, reference=train_data)
+        Args:
+            config: Configuración del entrenador
+        """
+        self.config = config or {}
         
         # Parámetros del modelo
-        params = {
-            'objective': 'binary',
-            'metric': 'binary_logloss',
-            'boosting_type': 'gbdt',
-            'num_leaves': 31,
-            'learning_rate': 0.05,
-            'feature_fraction': 0.9,
-            'bagging_fraction': 0.8,
-            'bagging_freq': 5,
-            'verbose': -1,
-            'max_depth': 7,
-            'min_data_in_leaf': 20,
-            'lambda_l1': 0.1,
-            'lambda_l2': 0.1
-        }
+        self.n_estimators = self.config.get('n_estimators', 100)
+        self.max_depth = self.config.get('max_depth', 20)
+        self.min_samples_split = self.config.get('min_samples_split', 10)
+        self.random_state = self.config.get('random_state', 42)
         
-        # Entrenar
-        print("🚀 Entrenando modelo LightGBM...")
-        print(f"{'─'*60}\n")
+        # Scaler
+        self.scaler = StandardScaler()
         
-        self.modelo = lgb.train(
-            params,
-            train_data,
-            num_boost_round=500,
-            valid_sets=[train_data, test_data],
-            valid_names=['train', 'valid'],
-            callbacks=[
-                lgb.early_stopping(stopping_rounds=50),
-                lgb.log_evaluation(period=50)
-            ]
-        )
-        
-        print(f"\n{'─'*60}")
-        print("✅ Entrenamiento completado")
-        print(f"{'─'*60}\n")
-        
-        # Predicciones
-        y_pred_train = (self.modelo.predict(X_train) > 0.5).astype(int)
-        y_pred_test = (self.modelo.predict(X_test) > 0.5).astype(int)
-        
-        # Métricas
-        train_acc = accuracy_score(y_train, y_pred_train)
-        test_acc = accuracy_score(y_test, y_pred_test)
-        
-        print(f"📈 RESULTADOS:")
-        print(f"{'─'*60}")
-        print(f"   Accuracy Train: {train_acc*100:.2f}%")
-        print(f"   Accuracy Test: {test_acc*100:.2f}%")
-        print(f"{'─'*60}\n")
-        
-        # Reporte detallado
-        print("📊 REPORTE DETALLADO (Test Set):")
-        print(f"{'─'*60}")
-        print(classification_report(y_test, y_pred_test, target_names=['PUT', 'CALL']))
-        
-        # Matriz de confusión
-        cm = confusion_matrix(y_test, y_pred_test)
-        print(f"\n📊 MATRIZ DE CONFUSIÓN:")
-        print(f"{'─'*60}")
-        print(f"                Predicho PUT    Predicho CALL")
-        print(f"Real PUT        {cm[0][0]:>12}    {cm[0][1]:>13}")
-        print(f"Real CALL       {cm[1][0]:>12}    {cm[1][1]:>13}")
-        print(f"{'─'*60}\n")
-        
-        # Feature importance
-        self.feature_importance = pd.DataFrame({
-            'feature': feature_names,
-            'importance': self.modelo.feature_importance(importance_type='gain')
-        }).sort_values('importance', ascending=False)
-        
-        print(f"🔝 TOP 15 FEATURES MÁS IMPORTANTES:")
-        print(f"{'─'*60}")
-        for idx, row in self.feature_importance.head(15).iterrows():
-            print(f"   {row['feature']:<30} {row['importance']:>10.2f}")
-        print(f"{'─'*60}\n")
-        
-        # Guardar métricas
-        self.metricas = {
-            'train_accuracy': float(train_acc),
-            'test_accuracy': float(test_acc),
-            'num_features': int(X.shape[1]),
-            'num_samples': int(len(X)),
-            'fecha_entrenamiento': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-        
-        self.logger.info(f"✅ Modelo entrenado - Test Accuracy: {test_acc*100:.2f}%")
-        
-        return self.modelo
+        logger.info("✅ HistoricalTrainer inicializado")
     
-    def guardar_modelo(self, nombre='historical_model'):
-        """Guarda el modelo entrenado"""
+    
+    def preparar_datos(self, df):
+        """
+        Prepara los datos para entrenamiento
+        
+        Args:
+            df: DataFrame con features
+            
+        Returns:
+            tuple: (X, y) o (None, None) si hay error
+        """
         try:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            if df is None or len(df) == 0:
+                logger.error("DataFrame vacío")
+                return None, None
+            
+            # Verificar que exista columna target
+            if 'target' not in df.columns:
+                logger.error("No se encontró columna 'target'")
+                return None, None
+            
+            # Columnas a excluir
+            columnas_excluir = [
+                'time', 'target', 'label', 'future_return', 
+                'precio_futuro', 'tick_volume', 'spread', 'real_volume'
+            ]
+            
+            # Separar features y target
+            X = df.copy()
+            for col in columnas_excluir:
+                if col in X.columns:
+                    X = X.drop(columns=[col])
+            
+            y = df['target'].values
+            
+            # Eliminar NaN
+            if X.isnull().any().any():
+                logger.warning("Eliminando NaN...")
+                mask = ~X.isnull().any(axis=1)
+                X = X[mask]
+                y = y[mask]
+            
+            logger.info(f"✅ Datos preparados: {len(X)} muestras, {X.shape[1]} features")
+            
+            return X, y
+            
+        except Exception as e:
+            logger.error(f"Error preparando datos: {e}")
+            import traceback
+            traceback.print_exc()
+            return None, None
+    
+    
+    def entrenar_modelo(self, X, y):
+        """
+        Entrena el modelo Random Forest
+        
+        Args:
+            X: Features
+            y: Target
+            
+        Returns:
+            Modelo entrenado o None si hay error
+        """
+        try:
+            if X is None or y is None:
+                logger.error("Datos inválidos para entrenamiento")
+                return None
+            
+            # Split train/test
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.2, random_state=self.random_state, stratify=y
+            )
+            
+            logger.info(f"📊 Distribución de datos:")
+            logger.info(f"   Training: {len(X_train)} muestras")
+            logger.info(f"   Testing: {len(X_test)} muestras")
+            
+            # Crear y entrenar modelo
+            modelo = RandomForestClassifier(
+                n_estimators=self.n_estimators,
+                max_depth=self.max_depth,
+                min_samples_split=self.min_samples_split,
+                random_state=self.random_state,
+                n_jobs=-1
+            )
+            
+            logger.info("🤖 Entrenando Random Forest...")
+            modelo.fit(X_train, y_train)
+            
+            # Evaluar
+            y_pred_train = modelo.predict(X_train)
+            y_pred_test = modelo.predict(X_test)
+            
+            acc_train = accuracy_score(y_train, y_pred_train)
+            acc_test = accuracy_score(y_test, y_pred_test)
+            
+            logger.info(f"✅ Modelo entrenado exitosamente!")
+            logger.info(f"   Accuracy Training: {acc_train:.4f}")
+            logger.info(f"   Accuracy Testing: {acc_test:.4f}")
+            
+            # Reporte de clasificación
+            logger.info("\n📈 Reporte de Clasificación:")
+            print(classification_report(y_test, y_pred_test, 
+                                       target_names=['Venta', 'Neutral', 'Compra']))
+            
+            # Matriz de confusión
+            logger.info("\n🔢 Matriz de Confusión:")
+            print(confusion_matrix(y_test, y_pred_test))
+            
+            # Feature importance
+            feature_importance = pd.DataFrame({
+                'feature': X.columns,
+                'importance': modelo.feature_importances_
+            }).sort_values('importance', ascending=False)
+            
+            logger.info("\n🎯 Top 10 Features más importantes:")
+            print(feature_importance.head(10).to_string(index=False))
+            
+            return modelo
+            
+        except Exception as e:
+            logger.error(f"Error entrenando modelo: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    
+    def guardar_modelo(self, modelo, scaler=None, metadata=None):
+        """
+        Guarda el modelo entrenado
+        
+        Args:
+            modelo: Modelo entrenado
+            scaler: Scaler usado (opcional)
+            metadata: Metadatos adicionales
+            
+        Returns:
+            tuple: (path, metadata) o None si falla
+        """
+        try:
+            os.makedirs('models', exist_ok=True)
+            
+            timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            
+            # Nombre del archivo
+            filename = f"modelo_historico_{timestamp}.pkl"
+            path = os.path.join('models', filename)
+            
+            # Preparar metadata
+            if metadata is None:
+                metadata = {}
+            
+            metadata.update({
+                'timestamp': timestamp,
+                'tipo': 'historico',
+                'modelo_clase': type(modelo).__name__
+            })
             
             # Guardar modelo
-            modelo_path = f'models/{nombre}_{timestamp}.pkl'
-            with open(modelo_path, 'wb') as f:
-                pickle.dump(self.modelo, f)
+            joblib.dump(modelo, path)
             
-            # Guardar scaler
-            scaler_path = f'models/{nombre}_scaler_{timestamp}.pkl'
-            with open(scaler_path, 'wb') as f:
-                pickle.dump(self.scaler, f)
+            # Verificar que se guardó
+            if not os.path.exists(path):
+                logger.error(f"❌ Archivo no creado: {path}")
+                return None
             
-            # Guardar feature importance
-            importance_path = f'models/{nombre}_importance_{timestamp}.csv'
-            self.feature_importance.to_csv(importance_path, index=False)
+            file_size = os.path.getsize(path) / 1024
+            logger.info(f"✅ Modelo guardado: {path} ({file_size:.2f} KB)")
             
-            # Guardar métricas
-            metricas_path = f'models/{nombre}_metricas_{timestamp}.json'
-            with open(metricas_path, 'w') as f:
-                json.dump(self.metricas, f, indent=4)
+            # Guardar metadata
+            metadata_path = path.replace('.pkl', '_metadata.json')
+            import json
+            with open(metadata_path, 'w') as f:
+                json.dump(metadata, f, indent=2, default=str)
             
-            print(f"💾 MODELO GUARDADO:")
-            print(f"{'─'*60}")
-            print(f"   Modelo: {modelo_path}")
-            print(f"   Scaler: {scaler_path}")
-            print(f"   Importance: {importance_path}")
-            print(f"   Métricas: {metricas_path}")
-            print(f"{'='*60}\n")
-            
-            self.logger.info(f"✅ Modelo guardado: {modelo_path}")
-            
-            return modelo_path, scaler_path
+            return (path, metadata)
             
         except Exception as e:
-            self.logger.error(f"❌ Error al guardar modelo: {str(e)}")
-            return None, None
-    
-    def cargar_modelo(self, modelo_path, scaler_path):
-        """Carga un modelo previamente entrenado"""
-        try:
-            with open(modelo_path, 'rb') as f:
-                self.modelo = pickle.load(f)
-            
-            with open(scaler_path, 'rb') as f:
-                self.scaler = pickle.load(f)
-            
-            self.logger.info(f"✅ Modelo cargado: {modelo_path}")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error al cargar modelo: {str(e)}")
-            return False
-    
-    def predecir(self, X):
-        """Realiza predicciones"""
-        if self.modelo is None or self.scaler is None:
-            self.logger.error("❌ Modelo no entrenado")
+            logger.error(f"❌ Error guardando modelo: {e}")
+            import traceback
+            traceback.print_exc()
             return None
+    
+    
+    def cargar_modelo(self, path):
+        """
+        Carga un modelo guardado
         
-        try:
-            X_scaled = self.scaler.transform(X)
-            probabilidades = self.modelo.predict(X_scaled)
-            predicciones = (probabilidades > 0.5).astype(int)
+        Args:
+            path: Ruta del modelo
             
-            return predicciones, probabilidades
+        Returns:
+            Modelo cargado o None si falla
+        """
+        try:
+            if not os.path.exists(path):
+                logger.error(f"Archivo no encontrado: {path}")
+                return None
+            
+            modelo = joblib.load(path)
+            logger.info(f"✅ Modelo cargado: {path}")
+            
+            return modelo
             
         except Exception as e:
-            self.logger.error(f"❌ Error al predecir: {str(e)}")
-            return None, None
+            logger.error(f"Error cargando modelo: {e}")
+            return None

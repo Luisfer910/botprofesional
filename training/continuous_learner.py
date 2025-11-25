@@ -1,232 +1,308 @@
+"""
+Continuous Learner - Aprendizaje continuo del modelo
+Versión corregida v2.0
+"""
+
 import pandas as pd
 import numpy as np
-import lightgbm as lgb
-from collections import deque
-import pickle
-import json
-import logging
 from datetime import datetime, timedelta
+import joblib
+import os
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class ContinuousLearner:
-    def __init__(self, modelo_hibrido, config_path='config/xm_config.json'):
-        with open(config_path, 'r') as f:
-            self.config = json.load(f)
+    """
+    Sistema de aprendizaje continuo que mejora el modelo
+    con experiencias en tiempo real
+    """
+    
+    def __init__(self, modelo_hibrido=None):
+        """
+        Inicializa el aprendizaje continuo
         
-        self.modelo = modelo_hibrido['live']  # Usar modelo live como base
-        self.scaler = modelo_hibrido['scaler']
+        Args:
+            modelo_hibrido: Puede ser:
+                - Dict con claves 'live' y 'historico'
+                - Modelo directo (RandomForest, LightGBM, etc.)
+                - None (modo observación)
+        """
+        self.modelo = None
+        self.tipo_modelo = 'desconocido'
         
-        # Buffer de experiencias (últimos N trades)
-        self.buffer_size = 500
-        self.experiencias = deque(maxlen=self.buffer_size)
+        # Manejar diferentes tipos de entrada
+        if modelo_hibrido is None:
+            logger.warning("⚠️ ContinuousLearner inicializado sin modelo (modo observación)")
+            self.tipo_modelo = 'sin_modelo'
+            
+        elif isinstance(modelo_hibrido, dict):
+            # Es un diccionario (modelo híbrido)
+            if 'live' in modelo_hibrido:
+                self.modelo = modelo_hibrido['live']
+                self.tipo_modelo = 'hibrido_live'
+                logger.info("✅ ContinuousLearner con modelo LIVE")
+                
+            elif 'historico' in modelo_hibrido:
+                self.modelo = modelo_hibrido['historico']
+                self.tipo_modelo = 'hibrido_historico'
+                logger.info("✅ ContinuousLearner con modelo HISTÓRICO (será adaptado)")
+                
+            else:
+                # Dict sin claves conocidas
+                logger.error("❌ Dict no contiene claves 'live' ni 'historico'")
+                self.tipo_modelo = 'dict_invalido'
+        else:
+            # Es un modelo directo (esto NO debería pasar en sistema live)
+            self.modelo = modelo_hibrido
+            self.tipo_modelo = 'directo'
+            logger.warning("⚠️ ContinuousLearner recibió modelo directo (esperaba dict híbrido)")
         
-        # Métricas de aprendizaje
+        # Validar que el modelo tenga métodos necesarios
+        if self.modelo is not None:
+            if not hasattr(self.modelo, 'predict'):
+                logger.error("❌ Modelo no tiene método 'predict'")
+                self.modelo = None
+            else:
+                logger.info(f"   Tipo de modelo: {type(self.modelo).__name__}")
+        
+        # Buffer de experiencias
+        self.experiencias = []
+        self.max_experiencias = 1000
+        
+        # Estadísticas
         self.total_actualizaciones = 0
         self.ultima_actualizacion = None
-        self.metricas_aprendizaje = []
+        self.proximo_reentrenamiento = datetime.now() + timedelta(days=7)
         
-        # Configuración de reentrenamiento
-        self.horas_reentrenamiento = self.config['MODELO']['REENTRENAMIENTO_HORAS']
-        self.proximo_reentrenamiento = datetime.now() + timedelta(hours=self.horas_reentrenamiento)
+        # Configuración
+        self.min_experiencias_aprender = 50
+        self.frecuencia_actualizacion = timedelta(hours=24)
         
-        logging.basicConfig(
-            filename='logs/continuous_learner.log',
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s'
-        )
-        self.logger = logging.getLogger(__name__)
+        logger.info(f"   Buffer: {self.max_experiencias} experiencias")
+        logger.info(f"   Min para aprender: {self.min_experiencias_aprender}")
         
-        self.logger.info("🧠 Continuous Learner inicializado")
+        # Intentar cargar estado previo
+        self.cargar_estado()
+
+    
     
     def agregar_experiencia(self, features, prediccion, resultado_real):
         """
-        Agrega una nueva experiencia al buffer
+        Agrega una experiencia al buffer
         
-        features: array con las features de la predicción
-        prediccion: 0 (PUT) o 1 (CALL)
-        resultado_real: 0 (perdió) o 1 (ganó)
+        Args:
+            features: Features del trade (array o DataFrame)
+            prediccion: Predicción del modelo (0 o 1)
+            resultado_real: Resultado real (0=perdió, 1=ganó)
         """
-        experiencia = {
-            'features': features,
-            'prediccion': prediccion,
-            'resultado_real': resultado_real,
-            'timestamp': datetime.now()
-        }
-        
-        self.experiencias.append(experiencia)
-        
-        self.logger.info(f"📝 Experiencia agregada: Pred={prediccion}, Real={resultado_real}")
-    
-    def aprender_de_experiencias(self, min_experiencias=50):
-        """
-        Aprende de las experiencias acumuladas
-        (Actualización incremental del modelo)
-        """
-        if len(self.experiencias) < min_experiencias:
-            self.logger.info(f"⏳ Esperando más experiencias ({len(self.experiencias)}/{min_experiencias})")
-            return False
-        
-        self.logger.info(f"🧠 Aprendiendo de {len(self.experiencias)} experiencias...")
-        
-        print(f"\n{'='*60}")
-        print(f"🧠 APRENDIZAJE CONTINUO")
-        print(f"{'='*60}")
-        print(f"Experiencias acumuladas: {len(self.experiencias)}")
-        
         try:
-            # Extraer datos del buffer
-            X_buffer = np.array([exp['features'] for exp in self.experiencias])
-            y_buffer = np.array([exp['resultado_real'] for exp in self.experiencias])
+            # Convertir features a formato serializable
+            if hasattr(features, 'values'):
+                features_array = features.values
+            elif isinstance(features, np.ndarray):
+                features_array = features
+            else:
+                features_array = np.array(features)
             
-            # Normalizar
-            X_buffer_scaled = self.scaler.transform(X_buffer)
-            
-            # Calcular accuracy actual
-            predicciones_actuales = (self.modelo.predict(X_buffer_scaled) > 0.5).astype(int)
-            accuracy_antes = np.mean(predicciones_actuales == y_buffer)
-            
-            print(f"Accuracy antes: {accuracy_antes*100:.2f}%")
-            
-            # Crear dataset
-            buffer_data = lgb.Dataset(X_buffer_scaled, label=y_buffer)
-            
-            # Parámetros para actualización incremental
-            params = {
-                'objective': 'binary',
-                'metric': 'binary_logloss',
-                'boosting_type': 'gbdt',
-                'num_leaves': 31,
-                'learning_rate': 0.005,  # Muy bajo para ajuste suave
-                'feature_fraction': 0.9,
-                'bagging_fraction': 0.8,
-                'bagging_freq': 5,
-                'verbose': -1,
-                'max_depth': 7,
-                'min_data_in_leaf': 5,
-                'lambda_l1': 0.1,
-                'lambda_l2': 0.1
+            experiencia = {
+                'features': features_array,
+                'prediccion': int(prediccion),
+                'resultado_real': int(resultado_real),
+                'timestamp': datetime.now(),
+                'correcto': int(prediccion) == int(resultado_real)
             }
             
-            # Actualizar modelo (continuar entrenamiento)
-            self.modelo = lgb.train(
-                params,
-                buffer_data,
-                num_boost_round=20,  # Pocas iteraciones
-                init_model=self.modelo,
-                valid_sets=[buffer_data],
-                callbacks=[lgb.log_evaluation(period=10)]
-            )
+            self.experiencias.append(experiencia)
             
-            # Calcular accuracy después
-            predicciones_nuevas = (self.modelo.predict(X_buffer_scaled) > 0.5).astype(int)
-            accuracy_despues = np.mean(predicciones_nuevas == y_buffer)
+            # Mantener solo las últimas N experiencias
+            if len(self.experiencias) > self.max_experiencias:
+                self.experiencias = self.experiencias[-self.max_experiencias:]
             
-            print(f"Accuracy después: {accuracy_despues*100:.2f}%")
-            print(f"Mejora: {(accuracy_despues-accuracy_antes)*100:+.2f}%")
-            print(f"{'='*60}\n")
-            
-            # Guardar métricas
-            self.metricas_aprendizaje.append({
-                'timestamp': datetime.now(),
-                'num_experiencias': len(self.experiencias),
-                'accuracy_antes': float(accuracy_antes),
-                'accuracy_despues': float(accuracy_despues),
-                'mejora': float(accuracy_despues - accuracy_antes)
-            })
-            
-            self.total_actualizaciones += 1
-            self.ultima_actualizacion = datetime.now()
-            
-            self.logger.info(f"✅ Aprendizaje completado - Accuracy: {accuracy_despues*100:.2f}%")
+            logger.debug(f"Experiencia agregada (total: {len(self.experiencias)}, correcto: {experiencia['correcto']})")
             
             return True
             
         except Exception as e:
-            self.logger.error(f"❌ Error en aprendizaje continuo: {str(e)}")
+            logger.error(f"Error agregando experiencia: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
+    
+    def aprender_de_experiencias(self, min_experiencias=None):
+        """
+        Aprende de las experiencias acumuladas
+        
+        Args:
+            min_experiencias: Mínimo de experiencias requeridas
+            
+        Returns:
+            bool: True si se actualizó el modelo
+        """
+        try:
+            if self.modelo is None:
+                logger.warning("No hay modelo para aprender")
+                return False
+            
+            min_exp = min_experiencias or self.min_experiencias_aprender
+            
+            if len(self.experiencias) < min_exp:
+                logger.debug(f"Insuficientes experiencias ({len(self.experiencias)}/{min_exp})")
+                return False
+            
+            # Verificar si es momento de actualizar
+            if self.ultima_actualizacion:
+                tiempo_desde_ultima = datetime.now() - self.ultima_actualizacion
+                if tiempo_desde_ultima < self.frecuencia_actualizacion:
+                    logger.debug("Aún no es momento de actualizar")
+                    return False
+            
+            logger.info(f"🧠 Aprendiendo de {len(self.experiencias)} experiencias...")
+            
+            # Preparar datos
+            X = []
+            y = []
+            
+            for exp in self.experiencias:
+                if exp['features'] is not None and len(exp['features']) > 0:
+                    X.append(exp['features'].flatten() if exp['features'].ndim > 1 else exp['features'])
+                    y.append(exp['resultado_real'])
+            
+            if len(X) == 0:
+                logger.warning("No hay features válidas para aprender")
+                return False
+            
+            X = np.array(X)
+            y = np.array(y)
+            
+            # Validar dimensiones
+            if X.ndim == 1:
+                X = X.reshape(-1, 1)
+            
+            # Calcular accuracy actual
+            predicciones = [exp['prediccion'] for exp in self.experiencias if exp['features'] is not None]
+            if len(predicciones) > 0:
+                accuracy_actual = np.mean([p == r for p, r in zip(predicciones, y)])
+                logger.info(f"   Accuracy actual: {accuracy_actual:.2%}")
+            
+            # Reentrenar modelo
+            actualizado = False
+            
+            if hasattr(self.modelo, 'partial_fit'):
+                # Aprendizaje incremental
+                try:
+                    self.modelo.partial_fit(X, y)
+                    logger.info("   ✅ Modelo actualizado (partial_fit)")
+                    actualizado = True
+                except Exception as e:
+                    logger.error(f"   Error en partial_fit: {e}")
+                    
+            elif hasattr(self.modelo, 'fit'):
+                # Reentrenamiento completo
+                try:
+                    self.modelo.fit(X, y)
+                    logger.info("   ✅ Modelo reentrenado (fit completo)")
+                    actualizado = True
+                except Exception as e:
+                    logger.error(f"   Error en fit: {e}")
+            else:
+                logger.warning("   ⚠️ Modelo no soporta reentrenamiento")
+            
+            if actualizado:
+                # Actualizar estadísticas
+                self.total_actualizaciones += 1
+                self.ultima_actualizacion = datetime.now()
+                
+                # Limpiar experiencias antiguas (mantener últimas 100)
+                self.experiencias = self.experiencias[-100:]
+                
+                logger.info(f"   Total actualizaciones: {self.total_actualizaciones}")
+                
+                # Guardar estado
+                self.guardar_estado()
+            
+            return actualizado
+            
+        except Exception as e:
+            logger.error(f"Error aprendiendo de experiencias: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    
     def necesita_reentrenamiento(self):
-        """Verifica si es momento de reentrenar completamente"""
+        """Verifica si es momento de reentrenamiento completo"""
         return datetime.now() >= self.proximo_reentrenamiento
     
-    def programar_proximo_reentrenamiento(self):
-        """Programa el próximo reentrenamiento automático"""
-        self.proximo_reentrenamiento = datetime.now() + timedelta(hours=self.horas_reentrenamiento)
-        self.logger.info(f"⏰ Próximo reentrenamiento: {self.proximo_reentrenamiento.strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    def programar_proximo_reentrenamiento(self, dias=7):
+        """Programa el próximo reentrenamiento completo"""
+        self.proximo_reentrenamiento = datetime.now() + timedelta(days=dias)
+        logger.info(f"Próximo reentrenamiento: {self.proximo_reentrenamiento.strftime('%Y-%m-%d %H:%M')}")
+    
     
     def obtener_estadisticas(self):
         """Obtiene estadísticas del aprendizaje continuo"""
         if len(self.experiencias) == 0:
-            return None
+            win_rate = 0.0
+        else:
+            win_rate = sum(1 for exp in self.experiencias if exp['correcto']) / len(self.experiencias)
         
-        # Calcular win rate reciente
-        resultados = [exp['resultado_real'] for exp in self.experiencias]
-        win_rate = np.mean(resultados)
-        
-        # Calcular win rate por tipo de señal
-        calls = [exp for exp in self.experiencias if exp['prediccion'] == 1]
-        puts = [exp for exp in self.experiencias if exp['prediccion'] == 0]
-        
-        win_rate_calls = np.mean([exp['resultado_real'] for exp in calls]) if len(calls) > 0 else 0
-        win_rate_puts = np.mean([exp['resultado_real'] for exp in puts]) if len(puts) > 0 else 0
-        
-        stats = {
+        return {
             'total_experiencias': len(self.experiencias),
-            'win_rate_general': float(win_rate),
-            'win_rate_calls': float(win_rate_calls),
-            'win_rate_puts': float(win_rate_puts),
-            'total_calls': len(calls),
-            'total_puts': len(puts),
+            'win_rate_general': win_rate,
             'total_actualizaciones': self.total_actualizaciones,
             'ultima_actualizacion': self.ultima_actualizacion.strftime('%Y-%m-%d %H:%M:%S') if self.ultima_actualizacion else 'Nunca',
-            'proximo_reentrenamiento': self.proximo_reentrenamiento.strftime('%Y-%m-%d %H:%M:%S')
+            'proximo_reentrenamiento': self.proximo_reentrenamiento.strftime('%Y-%m-%d %H:%M:%S'),
+            'tipo_modelo': self.tipo_modelo
         }
-        
-        return stats
     
-    def guardar_estado(self, nombre='continuous_learner'):
+    
+    def guardar_estado(self, path='models/continuous_learner_state.pkl'):
         """Guarda el estado del learner"""
         try:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            os.makedirs(os.path.dirname(path), exist_ok=True)
             
             estado = {
-                'modelo': self.modelo,
-                'scaler': self.scaler,
-                'experiencias': list(self.experiencias),
-                'metricas_aprendizaje': self.metricas_aprendizaje,
+                'experiencias': self.experiencias,
                 'total_actualizaciones': self.total_actualizaciones,
                 'ultima_actualizacion': self.ultima_actualizacion,
-                'proximo_reentrenamiento': self.proximo_reentrenamiento
+                'proximo_reentrenamiento': self.proximo_reentrenamiento,
+                'tipo_modelo': self.tipo_modelo
             }
             
-            estado_path = f'models/{nombre}_{timestamp}.pkl'
-            with open(estado_path, 'wb') as f:
-                pickle.dump(estado, f)
+            joblib.dump(estado, path)
+            logger.info(f"💾 Estado guardado: {path}")
             
-            self.logger.info(f"✅ Estado guardado: {estado_path}")
-            
-            return estado_path
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error al guardar estado: {str(e)}")
-            return None
-    
-    def cargar_estado(self, estado_path):
-        """Carga el estado del learner"""
-        try:
-            with open(estado_path, 'rb') as f:
-                estado = pickle.load(f)
-            
-            self.modelo = estado['modelo']
-            self.scaler = estado['scaler']
-            self.experiencias = deque(estado['experiencias'], maxlen=self.buffer_size)
-            self.metricas_aprendizaje = estado['metricas_aprendizaje']
-            self.total_actualizaciones = estado['total_actualizaciones']
-            self.ultima_actualizacion = estado['ultima_actualizacion']
-            self.proximo_reentrenamiento = estado['proximo_reentrenamiento']
-            
-            self.logger.info(f"✅ Estado cargado: {estado_path}")
             return True
             
         except Exception as e:
-            self.logger.error(f"❌ Error al cargar estado: {str(e)}")
+            logger.error(f"Error guardando estado: {e}")
+            return False
+    
+    
+    def cargar_estado(self, path='models/continuous_learner_state.pkl'):
+        """Carga el estado del learner"""
+        try:
+            if not os.path.exists(path):
+                logger.debug("No hay estado previo para cargar")
+                return False
+            
+            estado = joblib.load(path)
+            
+            self.experiencias = estado.get('experiencias', [])
+            self.total_actualizaciones = estado.get('total_actualizaciones', 0)
+            self.ultima_actualizacion = estado.get('ultima_actualizacion', None)
+            self.proximo_reentrenamiento = estado.get('proximo_reentrenamiento', datetime.now() + timedelta(days=7))
+            
+            logger.info(f"📂 Estado cargado: {path}")
+            logger.info(f"   Experiencias: {len(self.experiencias)}")
+            logger.info(f"   Actualizaciones: {self.total_actualizaciones}")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error cargando estado: {e}")
             return False

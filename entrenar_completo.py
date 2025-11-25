@@ -1,6 +1,6 @@
 """
 Script de entrenamiento completo del bot
-Versión corregida - Compatible con MT5Connector
+Versión corregida v3.4 - Fix config
 """
 
 import sys
@@ -173,12 +173,22 @@ def main():
         # ============================================================
         print_step(5, "ENTRENAMIENTO MODELO HISTÓRICO")
         
-        historical_trainer = HistoricalTrainer()
+        # >>> FIX: Pasar config={} al constructor <<<
+        historical_trainer = HistoricalTrainer(config={})
         
-        print("🧠 Entrenando modelo con LightGBM...")
+        print("🧠 Entrenando modelo con Random Forest...")
         print("   (Esto puede tomar 2-5 minutos)\n")
         
-        modelo_historico = historical_trainer.entrenar(df_historico_features)
+        # Preparar datos
+        X, y = historical_trainer.preparar_datos(df_historico_features)
+        
+        if X is None or y is None:
+            print_error("No se pudieron preparar los datos")
+            mt5.desconectar()
+            return False
+        
+        # Entrenar modelo
+        modelo_historico = historical_trainer.entrenar_modelo(X, y)
         
         if modelo_historico is None:
             print_error("No se pudo entrenar el modelo histórico")
@@ -187,82 +197,31 @@ def main():
         
         print_success("Modelo histórico entrenado exitosamente\n")
         
-        # Mostrar métricas
-        metricas = historical_trainer.obtener_metricas()
-        
-        if metricas:
-            print("📊 MÉTRICAS DEL MODELO HISTÓRICO:")
-            print(f"   Accuracy:     {metricas['accuracy']:.3f}")
-            print(f"   Precision:    {metricas['precision']:.3f}")
-            print(f"   Recall:       {metricas['recall']:.3f}")
-            print(f"   F1-Score:     {metricas['f1']:.3f}")
-            print(f"   ROC-AUC:      {metricas['roc_auc']:.3f}\n")
-        
         # ============================================================
-        # PASO 6: REFINAMIENTO CON DATOS LIVE
+        # PASO 6: GUARDADO DEL MODELO
         # ============================================================
-        if df_live_features is not None:
-            print_step(6, "REFINAMIENTO CON DATOS LIVE")
-            
-            print("🔄 Refinando modelo con datos de observación live...\n")
-            
-            modelo_historico = historical_trainer.refinar_con_live(
-                modelo_historico,
-                df_live_features
-            )
-            
-            print_success("Modelo refinado con datos live\n")
-        else:
-            print_step(6, "REFINAMIENTO CON DATOS LIVE")
-            print_info("Omitido (no hay datos live)\n")
+        print_step(6, "GUARDADO DEL MODELO")
         
-        # ============================================================
-        # PASO 7: CREACIÓN DE MODELO HÍBRIDO
-        # ============================================================
-        print_step(7, "CREACIÓN DE MODELO HÍBRIDO")
+        print("💾 Guardando modelo en carpeta 'models/'...\n")
         
-        hybrid_trainer = HybridTrainer()
-        
-        if df_live_features is not None:
-            print("🔗 Fusionando modelo histórico con observación live...")
-            print("   Calculando pesos óptimos...\n")
+        try:
+            resultado = historical_trainer.guardar_modelo(modelo_historico)
             
-            modelo_hibrido = hybrid_trainer.crear_modelo_hibrido(
-                modelo_historico,
-                df_historico_features,
-                df_live_features
-            )
-            
-            if modelo_hibrido:
-                print_success("Modelo híbrido creado exitosamente")
-                print(f"   Peso histórico: {modelo_hibrido['peso_historico']:.2f}")
-                print(f"   Peso live:      {modelo_hibrido['peso_live']:.2f}\n")
+            if resultado is not None:
+                if isinstance(resultado, tuple):
+                    path, metadata = resultado
+                    if path and os.path.exists(path):
+                        print_success(f"Modelo guardado: {path}")
+                    else:
+                        print_error("Error: archivo no creado")
+                else:
+                    print_error("Error: formato de resultado inválido")
             else:
-                print_info("No se pudo crear modelo híbrido, usando solo histórico\n")
-                modelo_hibrido = modelo_historico
-        else:
-            print_info("Usando solo modelo histórico (no hay datos live)\n")
-            modelo_hibrido = modelo_historico
-        
-        # ============================================================
-        # PASO 8: GUARDADO DE MODELOS
-        # ============================================================
-        print_step(8, "GUARDADO DE MODELOS")
-        
-        print("💾 Guardando modelos en carpeta 'models/'...\n")
-        
-        # Guardar modelo histórico
-        path_historico = historical_trainer.guardar_modelo(modelo_historico)
-        if path_historico:
-            print_success(f"Modelo histórico guardado: {path_historico}")
-        
-        # Guardar modelo híbrido
-        if modelo_hibrido and isinstance(modelo_hibrido, dict) and 'peso_historico' in modelo_hibrido:
-            path_hibrido = hybrid_trainer.guardar_modelo(modelo_hibrido)
-            if path_hibrido:
-                print_success(f"Modelo híbrido guardado: {path_hibrido}")
-        
-        print()
+                print_error("Error al guardar el modelo")
+                
+        except Exception as e:
+            print_error(f"Excepción al guardar: {str(e)}")
+            traceback.print_exc()
         
         # ============================================================
         # RESUMEN FINAL
@@ -276,9 +235,7 @@ def main():
             print(f"   Datos live:        {len(df_live)} ticks")
         
         print(f"   Features:          {len(df_historico_features.columns)}")
-        
-        if metricas:
-            print(f"   Accuracy:          {metricas['accuracy']:.1%}")
+        print(f"   Modelo:            Entrenado con {len(X)} muestras")
         
         print(f"\n🎯 PRÓXIMOS PASOS:")
         print(f"   1. python inicio_rapido.py  → Verificar instalación")
