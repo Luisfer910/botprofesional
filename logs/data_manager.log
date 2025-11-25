@@ -597,3 +597,11 @@
 2025-11-25 13:16:35,595 - INFO - ✅ Modelo guardado: models\modelo_hibrido_2025-11-25_13-16-35.pkl (25715.25 KB)
 2025-11-25 13:42:20,158 - INFO - ✅ SignalGenerator inicializado con MODELO ML
 2025-11-25 13:42:20,158 - INFO -    min_confidence=0.6
+2025-11-25 13:55:31,352 - INFO - ✅ SignalGenerator inicializado con MODELO ML
+2025-11-25 13:55:31,352 - INFO -    min_confidence=0.6
+2025-11-25 14:22:45,172 - INFO - ✅ SignalGenerator inicializado con MODELO ML
+2025-11-25 14:22:45,172 - INFO -    min_confidence=0.6
+2025-11-25 14:27:15,615 - INFO - ✅ SignalGenerator inicializado con MODELO ML
+2025-11-25 14:27:15,615 - INFO -    min_confidence=0.6
+2025-11-25 14:30:30,077 - INFO - ✅ SignalGenerator inicializado con MODELO ML
+2025-11-25 14:30:30,077 - INFO -    min_confidence=0.6
