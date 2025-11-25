@@ -666,3 +666,37 @@ Feature names seen at fit time, yet now missing:
 - dist_resistencia_cercana_pct
 - ...
 
+2025-11-25 14:58:06,224 - INFO - ✅ SignalGenerator inicializado
+2025-11-25 14:58:12,641 - INFO - Descargando 20000 velas de EURUSD M5
+2025-11-25 14:58:12,641 - INFO - Datos históricos cargados: 20000 velas
+2025-11-25 14:58:12,641 - INFO - 🔧 Generando features completas...
+2025-11-25 14:58:12,641 - INFO - 🚀 Iniciando generación completa de features...
+2025-11-25 14:58:12,641 - INFO - 🔧 Generando features básicas...
+2025-11-25 14:58:13,111 - INFO - ✅ Features básicas generadas: 22 features
+2025-11-25 14:58:13,120 - INFO - 🔧 Generando features de precio...
+2025-11-25 14:58:13,138 - INFO - ✅ Features de precio generadas
+2025-11-25 14:58:13,162 - INFO - 🔧 Detectando soportes y resistencias...
+2025-11-25 14:58:13,284 - INFO - ✅ Detectados 5 resistencias y 5 soportes
+2025-11-25 14:58:13,300 - INFO - 🔧 Generando features de impulsos...
+2025-11-25 14:58:13,300 - INFO - ✅ Features de impulsos generadas
+2025-11-25 14:58:13,311 - INFO - 🔧 Generando features de volatilidad...
+2025-11-25 14:58:13,322 - INFO - ✅ Features de volatilidad generadas
+2025-11-25 14:58:13,330 - INFO - 🔧 Generando features temporales...
+2025-11-25 14:58:13,340 - INFO - ✅ Features temporales generadas
+2025-11-25 14:58:13,340 - INFO - 🎯 Generando target (horizonte: 5, umbral: 0.01%)...
+2025-11-25 14:58:13,356 - INFO - 📊 Distribución del Target:
+2025-11-25 14:58:13,356 - INFO -    Compra (1):   7644 ( 38.2%)
+2025-11-25 14:58:13,356 - INFO -    Neutral (0):  4657 ( 23.3%)
+2025-11-25 14:58:13,356 - INFO -    Venta (-1):   7694 ( 38.5%)
+2025-11-25 14:58:13,356 - INFO - ✅ Generación completa de features finalizada
+2025-11-25 14:58:13,356 - INFO -    Total de features: 80
+2025-11-25 14:58:13,356 - INFO -    Total de muestras: 19796
+2025-11-25 14:58:13,373 - ERROR - ❌ Error generando señal: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- close
+- day_of_month
+- day_of_week
+- dist_resistencia_cercana
+- dist_resistencia_cercana_pct
+- ...
+

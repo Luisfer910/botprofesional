@@ -45,13 +45,30 @@ class SignalGenerator:
                 logger.warning("DataFrame vacío")
                 return self._señal_neutral()
             
-            # ✅ GENERAR FEATURES COMPLETAS (CRÍTICO)
+            # ✅ PASO 1: Generar TODAS las features (igual que en entrenamiento)
             logger.info("🔧 Generando features completas...")
+            df_original = df.copy()
+            
+            # Llamar a generar_todas_features
             df = self.feature_engineer.generar_todas_features(df)
             
             if df is None or len(df) == 0:
                 logger.error("Error generando features")
                 return self._señal_neutral()
+            
+            # ✅ PASO 2: Generar features temporales (CRÍTICO)
+            logger.info("🕐 Generando features temporales...")
+            df = self.feature_engineer.generar_features_temporales(df)
+            
+            # ✅ PASO 3: Detectar soportes y resistencias (CRÍTICO)
+            logger.info("📊 Detectando soportes y resistencias...")
+            df = self.feature_engineer.detectar_soportes_resistencias(df)
+            
+            # ✅ PASO 4: Limpiar NaN e infinitos
+            df = df.replace([np.inf, -np.inf], 0)
+            df = df.fillna(0)
+            
+            logger.info(f"✅ Features generadas: {len(df.columns)} columnas")
             
             # Preparar datos para predicción
             X = self._preparar_features(df)
@@ -87,8 +104,8 @@ class SignalGenerator:
             if accion == 'HOLD':
                 return self._señal_neutral()
             
-            # Obtener precio actual
-            precio_actual = float(df['close'].iloc[-1])
+            # Obtener precio actual (del DataFrame original)
+            precio_actual = float(df_original['close'].iloc[-1])
             
             # Calcular ATR para stop loss y take profit
             atr = float(df['atr'].iloc[-1]) if 'atr' in df.columns else precio_actual * 0.001
@@ -129,51 +146,24 @@ class SignalGenerator:
     
     
     def _preparar_features(self, df):
-        """Prepara features para el modelo"""
+        """
+        Prepara features para el modelo
+        ✅ USA TODAS LAS COLUMNAS (excepto las excluidas)
+        """
         try:
-            # Lista de features esperadas por el modelo
-            feature_cols = [
-                # Indicadores de tendencia
-                'sma_20', 'sma_50', 'sma_200', 'ema_9', 'ema_21',
-                'macd', 'macd_signal', 'macd_diff',
-                'adx', 'adx_pos', 'adx_neg',
-                
-                # Indicadores de momentum
-                'rsi', 'stoch_k', 'stoch_d',
-                
-                # Bollinger Bands
-                'bb_high', 'bb_mid', 'bb_low', 'bb_width', 'bb_position',
-                
-                # Volatilidad
-                'atr', 'atr_normalizado',
-                
-                # Volumen
-                'obv',
-                
-                # Patrones de velas
-                'body', 'body_abs', 'upper_shadow', 'lower_shadow',
-                'total_range', 'body_ratio', 'upper_shadow_ratio',
-                'lower_shadow_ratio', 'is_bullish', 'is_bearish',
-                'is_doji', 'is_hammer', 'is_shooting_star', 'is_engulfing',
-                
-                # Cambios de precio
-                'price_change', 'price_change_abs',
-                'momentum_3', 'momentum_5', 'momentum_10',
-                'roc_3', 'roc_5', 'roc_10'
+            # ✅ COLUMNAS A EXCLUIR (igual que en entrenamiento)
+            columnas_excluir = [
+                'time', 'tick_volume', 'spread', 'real_volume',
+                'target', 'target_clasificacion', 'retorno_futuro'
             ]
             
-            X = df.copy()
+            # Seleccionar todas las columnas excepto las excluidas
+            feature_cols = [col for col in df.columns if col not in columnas_excluir]
             
-            # Verificar columnas faltantes
-            missing_cols = [col for col in feature_cols if col not in X.columns]
+            logger.info(f"📊 Usando {len(feature_cols)} features para predicción")
             
-            if missing_cols:
-                logger.warning(f"⚠️  Columnas faltantes: {missing_cols[:5]}...")
-                for col in missing_cols:
-                    X[col] = 0.0
-            
-            # Seleccionar solo las features necesarias
-            X = X[feature_cols]
+            # Tomar última fila
+            X = df[feature_cols].tail(1).copy()
             
             # Reemplazar NaN/inf
             X = X.replace([np.inf, -np.inf], 0)
