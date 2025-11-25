@@ -1,6 +1,6 @@
 """
 Data Manager - Gestión de datos históricos y en tiempo real
-Versión: 2.0
+Versión: 2.1 - FIX resample live data
 """
 
 import MetaTrader5 as mt5
@@ -223,16 +223,20 @@ class DataManager:
         df_live_copy = df_live.copy()
         df_live_copy.set_index('time', inplace=True)
         
-        # Resamplear a velas
+        # ✅ FIX: Resamplear correctamente usando 'last' como precio principal
         velas_live = df_live_copy.resample(freq).agg({
-            'bid': 'ohlc',
+            'last': ['first', 'max', 'min', 'last'],  # OHLC del precio 'last'
             'volume': 'sum'
         })
         
         # Aplanar columnas multi-nivel
         velas_live.columns = ['open', 'high', 'low', 'close', 'volume']
+        
+        # Reset index (mantiene 'time' como nombre de columna)
+        velas_live = velas_live.reset_index()
+        
+        # Eliminar NaN
         velas_live = velas_live.dropna()
-        velas_live.reset_index(inplace=True)
         
         # Agregar columnas faltantes
         velas_live['tick_volume'] = velas_live['volume']

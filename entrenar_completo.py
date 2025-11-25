@@ -1,202 +1,142 @@
 """
-Script de entrenamiento completo del bot de trading XM
-Incluye: descarga histórica + observación live + entrenamiento
+Script de entrenamiento completo del bot
+Versión corregida v3.4 - Fix config
 """
 
 import sys
 import os
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-import time
-import MetaTrader5 as mt5
+from pathlib import Path
+import json
+from datetime import datetime
+import traceback
 
 # Agregar directorio raíz al path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, str(Path(__file__).parent))
 
 from core.mt5_connector import MT5Connector
-from core.data_manager import DataManager
 from core.feature_engineer import FeatureEngineer
 from training.historical_trainer import HistoricalTrainer
-from config.config import CONFIG
+from training.hybrid_trainer import HybridTrainer
+from core.data_manager import DataManager
 
-def print_header(texto):
+def print_header(text):
     """Imprime un encabezado formateado"""
+    print("\n" + "=" * 70)
+    print(f"  {text}")
+    print("=" * 70 + "\n")
+
+def print_step(numero, texto):
+    """Imprime un paso del proceso"""
     print("\n" + "─" * 70)
-    print(f"  {texto}")
+    print(f"  PASO {numero}: {texto}")
     print("─" * 70 + "\n")
 
+def print_success(text):
+    """Imprime mensaje de éxito"""
+    print(f"✅ {text}")
 
-def observar_mercado_live(connector, duracion_minutos=60, intervalo_segundos=1):
-    """
-    Observa el mercado en vivo capturando ticks
-    
-    Args:
-        connector: MT5Connector
-        duracion_minutos: Duración de la observación
-        intervalo_segundos: Intervalo entre capturas
-        
-    Returns:
-        DataFrame con datos OHLCV de las velas formadas
-    """
-    print(f"👁️  Observando mercado en vivo por {duracion_minutos} minutos...")
-    print(f"   Capturando ticks cada {intervalo_segundos} segundo(s)")
-    print(f"   Presiona Ctrl+C para detener antes\n")
-    
-    ticks_data = []
-    inicio = time.time()
-    duracion_segundos = duracion_minutos * 60
-    
-    try:
-        while (time.time() - inicio) < duracion_segundos:
-            # Obtener tick actual
-            tick = mt5.symbol_info_tick(connector.symbol)
-            
-            if tick is not None:
-                ticks_data.append({
-                    'time': datetime.fromtimestamp(tick.time),
-                    'bid': tick.bid,
-                    'ask': tick.ask,
-                    'last': tick.last,
-                    'volume': tick.volume
-                })
-            
-            # Mostrar progreso cada minuto
-            tiempo_transcurrido = (time.time() - inicio) / 60
-            if len(ticks_data) % 60 == 0:
-                print(f"   📊 {len(ticks_data)} ticks capturados ({tiempo_transcurrido:.1f} min)")
-            
-            time.sleep(intervalo_segundos)
-            
-    except KeyboardInterrupt:
-        print("\n   ⚠️  Observación interrumpida por el usuario")
-    
-    duracion_real = (time.time() - inicio) / 60
-    
-    print(f"\n   ✅ Observación completada")
-    print(f"   📊 Total ticks capturados: {len(ticks_data)}")
-    print(f"   ⏱️  Duración real: {duracion_real:.1f} minutos")
-    
-    if len(ticks_data) == 0:
-        return None
-    
-    # ✅ CONVERTIR TICKS A VELAS OHLCV
-    df_ticks = pd.DataFrame(ticks_data)
-    df_ticks['time'] = pd.to_datetime(df_ticks['time'])
-    df_ticks.set_index('time', inplace=True)
-    
-    # Usar el precio 'last' (o 'bid' si last no existe) como precio de cierre
-    df_ticks['price'] = df_ticks['last'].fillna(df_ticks['bid'])
-    
-    # ✅ RESAMPLE A VELAS DE 5 MINUTOS (M5)
-    df_ohlcv = pd.DataFrame({
-        'open': df_ticks['price'].resample('5T').first(),
-        'high': df_ticks['price'].resample('5T').max(),
-        'low': df_ticks['price'].resample('5T').min(),
-        'close': df_ticks['price'].resample('5T').last(),
-        'tick_volume': df_ticks['volume'].resample('5T').sum()
-    })
-    
-    # Eliminar filas con NaN
-    df_ohlcv = df_ohlcv.dropna()
-    
-    # Reset index para tener 'time' como columna
-    df_ohlcv.reset_index(inplace=True)
-    
-    print(f"\n   ✅ Convertidos a {len(df_ohlcv)} velas OHLCV (M5)")
-    
-    return df_ohlcv
+def print_error(text):
+    """Imprime mensaje de error"""
+    print(f"❌ {text}")
 
+def print_info(text):
+    """Imprime mensaje informativo"""
+    print(f"ℹ️  {text}")
 
 def main():
-    """Función principal del entrenamiento completo"""
+    """Función principal de entrenamiento"""
     
-    print("=" * 70)
-    print("  🤖 BOT DE TRADING XM - ENTRENAMIENTO COMPLETO")
-    print("=" * 70)
-    print(f"\nInicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+    print_header("🚀 BOT DE TRADING XM - ENTRENAMIENTO COMPLETO")
+    print(f"Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
     
     try:
-        # ──────────────────────────────────────────────────────────────
+        # ============================================================
         # PASO 1: CONEXIÓN A MT5
-        # ──────────────────────────────────────────────────────────────
-        print_header("PASO 1: CONEXIÓN A MT5")
+        # ============================================================
+        print_step(1, "CONEXIÓN A MT5")
         
-        connector = MT5Connector(CONFIG)
-        if not connector.conectar():
-            print("❌ Error al conectar con MT5")
-            return
+        mt5 = MT5Connector(config_path='config/xm_config.json')
         
-        print("✅ Conectado exitosamente")
+        if not mt5.conectar():
+            print_error("No se pudo conectar a MT5")
+            return False
         
-        # Mostrar info de cuenta
-        info = mt5.account_info()
+        print_success("Conectado exitosamente")
+        
+        # Obtener información de la cuenta
+        info = mt5.obtener_info_cuenta()
         if info:
             print(f"\n💰 Información de Cuenta:")
-            print(f"   • Login: {info.login}")
-            print(f"   • Balance: ${info.balance:,.2f}")
-            print(f"   • Equity: ${info.equity:,.2f}")
-            print(f"   • Margen Libre: ${info.margin_free:,.2f}")
-            print(f"   • Apalancamiento: 1:{info.leverage}")
+            print(f"   • Login: {info.get('login', 'N/A')}")
+            print(f"   • Balance: ${info['balance']:,.2f}")
+            print(f"   • Equity: ${info['equity']:,.2f}")
+            print(f"   • Margen Libre: ${info.get('margin_free', 0):,.2f}")
+            print(f"   • Apalancamiento: 1:{info.get('leverage', 'N/A')}")
         
-        # ──────────────────────────────────────────────────────────────
+        # ============================================================
         # PASO 2: DESCARGA DE DATOS HISTÓRICOS
-        # ──────────────────────────────────────────────────────────────
-        print_header("PASO 2: DESCARGA DE DATOS HISTÓRICOS")
+        # ============================================================
+        print_step(2, "DESCARGA DE DATOS HISTÓRICOS")
         
-        data_manager = DataManager(connector, CONFIG)
+        data_manager = DataManager(mt5)
         
-        print(f"📥 Descargando {CONFIG['VELAS_HISTORICAS']:,} velas históricas...")
-        print(f"   (Esto puede tomar 1-2 minutos)\n")
+        print("📥 Descargando 20,000 velas históricas...")
+        print("   (Esto puede tomar 1-2 minutos)\n")
         
-        df_historico = data_manager.obtener_datos_historicos(
-            num_velas=CONFIG['VELAS_HISTORICAS']
-        )
+        df_historico = data_manager.cargar_datos_historicos(cantidad=20000)
         
         if df_historico is None or len(df_historico) == 0:
-            print("❌ Error al obtener datos históricos")
-            connector.desconectar()
-            return
+            print_error("No se pudieron cargar datos históricos")
+            mt5.desconectar() 
+            return False
         
-        print(f"✅ Datos históricos cargados: {len(df_historico)} velas")
-        print(f"   Período: {df_historico['time'].min()} a {df_historico['time'].max()}\n")
+        print_success(f"Datos históricos cargados: {len(df_historico)} velas")
+        print(f"   Período: {df_historico['time'].iloc[0]} a {df_historico['time'].iloc[-1]}\n")
         
-        # ──────────────────────────────────────────────────────────────
-        # PASO 3: OBSERVACIÓN LIVE
-        # ──────────────────────────────────────────────────────────────
-        print_header("PASO 3: OBSERVACIÓN LIVE")
+        # ============================================================
+        # PASO 3: OBSERVACIÓN LIVE (OPCIONAL)
+        # ============================================================
+        print_step(3, "OBSERVACIÓN LIVE")
         
         print("🔴 OBSERVACIÓN EN VIVO")
         print("   Esta fase observa el mercado tick-by-tick durante 1 hora")
         print("   para capturar datos de formación de velas en tiempo real.\n")
         
-        respuesta = input("¿Deseas realizar la observación live? (s/n): ").lower()
+        respuesta = input("¿Deseas realizar la observación live? (s/n): ")
         
         df_live = None
-        if respuesta == 's':
-            duracion = 60  # minutos
-            print(f"\n⏱️  Iniciando observación live por {duracion} minutos...")
-            print(f"   Puedes detener con Ctrl+C si lo deseas\n")
+        
+        if respuesta.lower() == 's':
+            print("\n⏱️  Iniciando observación live por 60 minutos...")
+            print("   Puedes detener con Ctrl+C si lo deseas\n")
             
-            df_live = observar_mercado_live(
-                connector, 
-                duracion_minutos=duracion,
-                intervalo_segundos=1
-            )
-            
-            if df_live is not None and len(df_live) > 0:
-                print(f"✅ Observación completada: {len(df_live)} velas capturadas")
-            else:
-                print("⚠️  No se capturaron datos live suficientes")
+            try:
+                df_live = data_manager.observar_mercado_live(duracion_minutos=60)
+                
+                if df_live is not None and len(df_live) > 0:
+                    print_success(f"Observación completada: {len(df_live)} ticks capturados")
+                else:
+                    print_info("No se capturaron datos live")
+                    df_live = None
+                    
+            except KeyboardInterrupt:
+                print("\n\n⚠️  Observación interrumpida por el usuario")
+                df_live = data_manager.obtener_datos_live()
+                
+                if df_live is not None and len(df_live) > 0:
+                    print(f"   Datos parciales capturados: {len(df_live)} ticks")
+                else:
+                    df_live = None
         else:
-            print("⏭️  Saltando observación live")
+            print_info("Observación live omitida")
+            print("   El modelo se entrenará solo con datos históricos\n")
         
-        # ──────────────────────────────────────────────────────────────
+        # ============================================================
         # PASO 4: GENERACIÓN DE FEATURES
-        # ──────────────────────────────────────────────────────────────
-        print_header("PASO 4: GENERACIÓN DE FEATURES")
+        # ============================================================
+        print_step(4, "GENERACIÓN DE FEATURES")
         
-        feature_engineer = FeatureEngineer(CONFIG)
+        feature_engineer = FeatureEngineer()
         
         print("🔧 Generando features para datos históricos...")
         print("   - Indicadores técnicos (RSI, MACD, ADX, etc.)")
@@ -208,92 +148,124 @@ def main():
         df_historico_features = feature_engineer.generar_todas_features(df_historico)
         
         if df_historico_features is None or len(df_historico_features) == 0:
-            print("❌ Error al generar features históricas")
-            connector.desconectar()
-            return
+            print_error("No se pudieron generar features")
+            mt5.desconectar() 
+            return False
         
-        print(f"✅ Features generadas: {len(df_historico_features.columns)} columnas")
+        print_success(f"Features generadas: {len(df_historico_features.columns)} columnas")
         print(f"   Datos válidos: {len(df_historico_features)} filas\n")
         
-        # Generar features para datos live si existen
+        # Features para datos live (si existen)
         df_live_features = None
-        if df_live is not None and len(df_live) > 0:
-            print("🔧 Generando features para datos live...\n")
+        
+        if df_live is not None:
+            print("🔧 Generando features para datos live...")
             df_live_features = feature_engineer.generar_todas_features(df_live)
             
             if df_live_features is not None and len(df_live_features) > 0:
-                print(f"✅ Features live generadas: {len(df_live_features)} filas\n")
+                print_success(f"Features live generadas: {len(df_live_features)} filas\n")
+            else:
+                print_info("No se pudieron generar features live\n")
+                df_live_features = None
         
-        # ──────────────────────────────────────────────────────────────
-        # PASO 5: ENTRENAMIENTO DEL MODELO
-        # ──────────────────────────────────────────────────────────────
-        print_header("PASO 5: ENTRENAMIENTO DEL MODELO")
+        # ============================================================
+        # PASO 5: ENTRENAMIENTO MODELO HISTÓRICO
+        # ============================================================
+        print_step(5, "ENTRENAMIENTO MODELO HISTÓRICO")
         
-        trainer = HistoricalTrainer(CONFIG)
+        # >>> FIX: Pasar config={} al constructor <<<
+        historical_trainer = HistoricalTrainer(config={})
         
-        print("🤖 Entrenando modelo de Machine Learning...")
-        print("   - Algoritmo: Random Forest + XGBoost")
-        print("   - Validación cruzada temporal")
-        print("   - Optimización de hiperparámetros\n")
+        print("🧠 Entrenando modelo con Random Forest...")
+        print("   (Esto puede tomar 2-5 minutos)\n")
         
-        # Combinar datos históricos y live si existen
-        if df_live_features is not None and len(df_live_features) > 0:
-            print("📊 Combinando datos históricos + live...\n")
-            df_completo = pd.concat([df_historico_features, df_live_features], ignore_index=True)
-        else:
-            df_completo = df_historico_features
+        # Preparar datos
+        X, y = historical_trainer.preparar_datos(df_historico_features)
         
-        # Entrenar
-        modelo, metricas = trainer.entrenar(df_completo)
+        if X is None or y is None:
+            print_error("No se pudieron preparar los datos")
+            mt5.desconectar()
+            return False
         
-        if modelo is None:
-            print("❌ Error en el entrenamiento")
-            connector.desconectar()
-            return
+        # Entrenar modelo
+        modelo_historico = historical_trainer.entrenar_modelo(X, y)
         
-        print("\n✅ Modelo entrenado exitosamente")
-        print(f"\n📊 Métricas del modelo:")
-        print(f"   • Accuracy: {metricas.get('accuracy', 0):.2%}")
-        print(f"   • Precision: {metricas.get('precision', 0):.2%}")
-        print(f"   • Recall: {metricas.get('recall', 0):.2%}")
-        print(f"   • F1-Score: {metricas.get('f1', 0):.2%}")
+        if modelo_historico is None:
+            print_error("No se pudo entrenar el modelo histórico")
+            mt5.desconectar() 
+            return False
         
-        # ──────────────────────────────────────────────────────────────
-        # PASO 6: GUARDAR MODELO
-        # ──────────────────────────────────────────────────────────────
-        print_header("PASO 6: GUARDAR MODELO")
+        print_success("Modelo histórico entrenado exitosamente\n")
         
-        ruta_modelo = trainer.guardar_modelo(modelo)
+        # ============================================================
+        # PASO 6: GUARDADO DEL MODELO
+        # ============================================================
+        print_step(6, "GUARDADO DEL MODELO")
         
-        if ruta_modelo:
-            print(f"✅ Modelo guardado en: {ruta_modelo}")
-        else:
-            print("⚠️  Error al guardar el modelo")
+        print("💾 Guardando modelo en carpeta 'models/'...\n")
         
-        # ──────────────────────────────────────────────────────────────
-        # FINALIZACIÓN
-        # ──────────────────────────────────────────────────────────────
-        connector.desconectar()
+        try:
+            resultado = historical_trainer.guardar_modelo(modelo_historico)
+            
+            if resultado is not None:
+                if isinstance(resultado, tuple):
+                    path, metadata = resultado
+                    if path and os.path.exists(path):
+                        print_success(f"Modelo guardado: {path}")
+                    else:
+                        print_error("Error: archivo no creado")
+                else:
+                    print_error("Error: formato de resultado inválido")
+            else:
+                print_error("Error al guardar el modelo")
+                
+        except Exception as e:
+            print_error(f"Excepción al guardar: {str(e)}")
+            traceback.print_exc()
         
-        print("\n" + "=" * 70)
-        print("  ✅ ENTRENAMIENTO COMPLETADO EXITOSAMENTE")
-        print("=" * 70)
-        print(f"\nFin: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"\n💡 Ahora puedes ejecutar 'python main.py' para usar el bot\n")
+        # ============================================================
+        # RESUMEN FINAL
+        # ============================================================
+        print_header("✅ ENTRENAMIENTO COMPLETADO")
+        
+        print("📊 RESUMEN:")
+        print(f"   Datos históricos:  {len(df_historico)} velas")
+        
+        if df_live is not None:
+            print(f"   Datos live:        {len(df_live)} ticks")
+        
+        print(f"   Features:          {len(df_historico_features.columns)}")
+        print(f"   Modelo:            Entrenado con {len(X)} muestras")
+        
+        print(f"\n🎯 PRÓXIMOS PASOS:")
+        print(f"   1. python inicio_rapido.py  → Verificar instalación")
+        print(f"   2. python main.py           → Iniciar bot de trading")
+        print(f"   3. Selecciona modo automático")
+        print(f"   4. ¡Deja que el bot opere!\n")
+        
+        print("=" * 70 + "\n")
+        
+        # Cerrar conexión
+        mt5.desconectar() 
+        
+        return True
         
     except KeyboardInterrupt:
         print("\n\n⚠️  Proceso interrumpido por el usuario")
-        if 'connector' in locals():
-            connector.desconectar()
-    
+        return False
+        
     except Exception as e:
-        print(f"\n❌ Error inesperado: {e}")
-        import traceback
+        print(f"\n❌ Error inesperado: {str(e)}")
         traceback.print_exc()
-        if 'connector' in locals():
-            connector.desconectar()
-        print("❌ Proceso terminado con errores")
-
+        return False
 
 if __name__ == "__main__":
-    main()
+    try:
+        exito = main()
+        if exito:
+            print("✅ Proceso completado exitosamente")
+        else:
+            print("❌ Proceso terminado con errores")
+    except Exception as e:
+        print(f"\n❌ Error fatal: {str(e)}")
+        traceback.print_exc()
