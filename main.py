@@ -131,7 +131,6 @@ class TradingBot:
             if not modelos:
                 print("   ⚠️  No se encontraron modelos en 'models/'")
                 print("   📂 Archivos en models/:")
-                
                 # Listar todos los archivos en models/
                 if os.path.exists('models'):
                     archivos = os.listdir('models')
@@ -142,7 +141,6 @@ class TradingBot:
                         print("      (carpeta vacía)")
                 else:
                     print("      (carpeta no existe)")
-                
                 return False
             
             # Cargar el más reciente
@@ -222,10 +220,10 @@ class TradingBot:
                 print(f"🔄 Ciclo #{ciclo} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
                 print(f"{'─'*70}\n")
                 
-                # 1. Obtener datos - CORREGIDO: usar cargar_datos_historicos con cantidad
+                # 1. Obtener datos - ✅ CORREGIDO
                 print("📥 Obteniendo datos del mercado...")
                 velas = self.data_manager.cargar_datos_historicos(
-                    cantidad=self.config['TRADING']['VELAS_ANALISIS']
+                    cantidad=self.config['MODELO']['VELAS_HISTORICAS']
                 )
                 
                 if velas is None or len(velas) == 0:
@@ -235,9 +233,9 @@ class TradingBot:
                 
                 print(f"✅ {len(velas)} velas obtenidas\n")
                 
-                # 2. Generar señal
+                # 2. Generar señal - ✅ CORREGIDO: generar_señal (con tilde)
                 print("🧠 Analizando mercado...")
-                senal = self.signal_generator.generar_senal(velas)
+                senal = self.signal_generator.generar_señal(velas)
                 
                 if senal is None:
                     print("⚠️  No se pudo generar señal")
@@ -264,13 +262,12 @@ class TradingBot:
                         self._ejecutar_automatico(senal)
                     elif self.modo == 'semi_automatico':
                         self._ejecutar_semi_automatico(senal)
-                    # En modo observación no hace nada
                 
                 # 5. Mostrar estadísticas
                 self._mostrar_estadisticas()
                 
                 # 6. Esperar siguiente ciclo
-                intervalo = self.config['TRADING'].get('INTERVALO_CICLOS', 60)
+                intervalo = 60
                 print(f"\n⏳ Esperando {intervalo}s hasta próximo ciclo...")
                 time.sleep(intervalo)
                 
@@ -285,89 +282,119 @@ class TradingBot:
     
     def _mostrar_senal(self, senal):
         """Muestra la señal generada"""
-        tipo = senal['tipo']
-        prob = senal.get('probabilidad', 0)
-        conf = senal.get('confianza', 0)
+        print("\n" + "="*70)
+        print("  📊 SEÑAL GENERADA")
+        print("="*70)
         
-        if tipo == 'CALL':
-            emoji = "📈"
-            color = "verde"
-        elif tipo == 'PUT':
-            emoji = "📉"
-            color = "rojo"
-        else:
-            emoji = "⏸️"
-            color = "amarillo"
+        tipo_emoji = {
+            'BUY': '🟢',
+            'SELL': '🔴',
+            'HOLD': '⚪'
+        }
         
-        print(f"\n{emoji} SEÑAL: {tipo}")
-        print(f"   • Probabilidad: {prob:.1f}%")
-        print(f"   • Confianza: {conf:.1f}%")
+        # Tipo de señal
+        tipo = senal.get('tipo', 'UNKNOWN')
+        print(f"\n{tipo_emoji.get(tipo, '❓')} Tipo: {tipo}")
         
-        if 'motivo' in senal:
-            print(f"   • Motivo: {senal['motivo']}")
+        # Fuerza (con protección)
+        if 'fuerza' in senal:
+            print(f"💪 Fuerza: {senal['fuerza']:.2%}")
+        
+        # Precio actual
+        if 'precio_actual' in senal and senal['precio_actual'] > 0:
+            print(f"📈 Precio actual: {senal['precio_actual']:.5f}")
+        
+        # Detalles solo si no es HOLD
+        if tipo != 'HOLD':
+            if 'take_profit' in senal and senal['take_profit'] > 0:
+                print(f"🎯 Take Profit: {senal['take_profit']:.5f}")
+            if 'stop_loss' in senal and senal['stop_loss'] > 0:
+                print(f"🛡️  Stop Loss: {senal['stop_loss']:.5f}")
+            if 'lote' in senal and senal['lote'] > 0:
+                print(f"📊 Lote sugerido: {senal['lote']:.2f}")
+        
+        # Razón
+        if 'razon' in senal:
+            print(f"📝 Razón: {senal['razon']}")
+        
+        print("\n" + "="*70)
+
     
     def _ejecutar_automatico(self, senal):
-        """Ejecuta trade automáticamente"""
-        print("\n🤖 Ejecutando trade automático...")
+        """Ejecuta operación automáticamente"""
+        print("\n🤖 MODO AUTOMÁTICO - Ejecutando operación...")
         
-        resultado = self.order_executor.ejecutar_trade(senal)
+        resultado = self.order_executor.ejecutar_orden(senal)
         
         if resultado['exito']:
-            print(f"✅ Trade ejecutado: {resultado['ticket']}")
+            print(f"✅ Orden ejecutada: Ticket #{resultado['ticket']}")
         else:
-            print(f"❌ Error: {resultado['mensaje']}")
+            print(f"❌ Error al ejecutar: {resultado['mensaje']}")
     
     def _ejecutar_semi_automatico(self, senal):
-        """Pide confirmación antes de ejecutar"""
-        print("\n📊 ¿Ejecutar este trade?")
-        print("   1. ✅ Sí")
-        print("   2. ❌ No")
+        """Solicita confirmación antes de ejecutar"""
+        print("\n📊 MODO SEMI-AUTOMÁTICO")
+        print(f"\n¿Deseas ejecutar esta operación {senal['tipo']}?")
+        print("  1. ✅ Sí, ejecutar")
+        print("  2. ❌ No, saltar")
+        print("  0. 🛑 Detener bot\n")
         
         try:
-            opcion = input("\nSelecciona (1-2): ").strip()
+            respuesta = input("Selecciona (0-2): ").strip()
             
-            if opcion == '1':
-                self._ejecutar_automatico(senal)
+            if respuesta == '1':
+                print("\n✅ Ejecutando operación...")
+                resultado = self.order_executor.ejecutar_orden(senal)
+                
+                if resultado['exito']:
+                    print(f"✅ Orden ejecutada: Ticket #{resultado['ticket']}")
+                else:
+                    print(f"❌ Error al ejecutar: {resultado['mensaje']}")
+                    
+            elif respuesta == '2':
+                print("⏭️  Operación omitida")
+            elif respuesta == '0':
+                print("\n🛑 Deteniendo bot...")
+                self.stop()
             else:
-                print("❌ Trade cancelado por el usuario")
+                print("❌ Opción inválida, omitiendo operación")
                 
         except KeyboardInterrupt:
-            print("\n❌ Trade cancelado")
+            print("\n\n⚠️  Interrupción detectada")
+            self.stop()
     
     def _mostrar_estadisticas(self):
         """Muestra estadísticas del bot"""
-        print("\n" + "─"*70)
-        print("📊 ESTADÍSTICAS")
-        print("─"*70)
-        
-        # Info de cuenta
-        info = self.mt5.obtener_info_cuenta()
-        if info:
-            print(f"\n💰 Cuenta:")
-            print(f"   • Balance: ${info['balance']:.2f}")
-            print(f"   • Equity: ${info['equity']:.2f}")
-            print(f"   • Profit: ${info['profit']:.2f}")
-        
-        # Estadísticas de riesgo
-        stats_riesgo = self.risk_manager.obtener_estadisticas()
-        print(f"\n⚠️  Gestión de Riesgo:")
-        print(f"   • Trades hoy: {stats_riesgo.get('trades_hoy', 0)}")
-        print(f"   • Pérdida diaria: ${stats_riesgo.get('perdida_diaria', 0):.2f}")
-        print(f"   • Drawdown: {stats_riesgo.get('drawdown', 0):.1f}%")
+        try:
+            info = self.mt5.obtener_info_cuenta()
+            
+            print("\n" + "─"*70)
+            print("📊 ESTADÍSTICAS")
+            print("─"*70)
+            print(f"💰 Balance: ${info['balance']:.2f}")
+            print(f"📈 Equity: ${info['equity']:.2f}")
+            print(f"📊 Margen: ${info['margin']:.2f}")
+            print(f"🆓 Margen libre: ${info['margin_libre']:.2f}")
+            print(f"📉 Profit: ${info['profit']:.2f}")
+            print("─"*70)
+            
+        except Exception as e:
+            print(f"⚠️  No se pudieron obtener estadísticas: {e}")
     
     def stop(self):
-        """Detiene el bot"""
+        """Detiene el bot de forma segura"""
         print("\n🛑 Deteniendo bot...")
         self.running = False
         
         if self.mt5:
             self.mt5.desconectar()
+            print("🔌 Desconectado de MT5")
         
         print("✅ Bot detenido correctamente\n")
 
+
 def main():
     """Función principal"""
-    # Crear bot
     bot = TradingBot()
     
     # Inicializar
@@ -379,10 +406,12 @@ def main():
     modo = bot.seleccionar_modo()
     if modo is None:
         print("\n👋 Saliendo...")
+        bot.stop()
         return
     
     # Ejecutar
     bot.ejecutar()
+
 
 if __name__ == "__main__":
     main()

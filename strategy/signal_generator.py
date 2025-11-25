@@ -1,382 +1,236 @@
-"""
-Signal Generator - Generador de señales de trading
-Versión híbrida: Soporta modelo ML + análisis técnico
-"""
-
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 
 class SignalGenerator:
     """
-    Generador de señales de trading basado en:
-    - Modelo de Machine Learning (si está disponible)
-    - Estructura de mercado
-    - Zonas de oferta/demanda
-    - Patrones de velas
-    - Indicadores técnicos
+    Generador de señales de trading basado en modelo de IA
     """
     
-    def __init__(self, modelo=None, feature_engineer=None, config: Optional[Dict] = None):
+    def __init__(self, modelo, feature_engineer, config=None):
         """
-        Inicializar generador de señales
+        Inicializa el generador de señales
         
         Args:
-            modelo: Modelo de ML entrenado (opcional)
-            feature_engineer: FeatureEngineer para generar features (opcional)
-            config: Configuración del generador
+            modelo: Modelo de ML entrenado
+            feature_engineer: FeatureEngineer para procesar datos
+            config: Configuración adicional
         """
         self.modelo = modelo
         self.feature_engineer = feature_engineer
         self.config = config or {}
         
-        # Umbrales de señal
-        self.min_confidence = self.config.get('min_confidence', 0.6)
-        self.rsi_oversold = self.config.get('rsi_oversold', 30)
-        self.rsi_overbought = self.config.get('rsi_overbought', 70)
+        # Parámetros
+        self.umbral_confianza = self.config.get('UMBRAL_CONFIANZA', 0.6)
         
-        # Modo de operación
-        self.usar_ml = modelo is not None
-        
-        if self.usar_ml:
-            logger.info(f"✅ SignalGenerator inicializado con MODELO ML")
-        else:
-            logger.info(f"✅ SignalGenerator inicializado con ANÁLISIS TÉCNICO")
-        
-        logger.info(f"   min_confidence={self.min_confidence}")
+        logger.info("✅ SignalGenerator inicializado")
     
     
-    def generar_señal(self, df: pd.DataFrame) -> Dict:
+    def generar_señal(self, df):
         """
-        Generar señal de trading (método principal para main.py)
+        Genera señal de trading basada en el modelo
         
         Args:
-            df: DataFrame con datos OHLCV y features
+            df: DataFrame con datos OHLCV
             
         Returns:
-            Diccionario con la señal
-        """
-        # Si hay modelo ML, usarlo
-        if self.usar_ml:
-            return self._generar_señal_ml(df)
-        else:
-            # Fallback a análisis técnico
-            return self._generar_señal_tecnica(df)
-    
-    
-    def _generar_señal_ml(self, df: pd.DataFrame) -> Dict:
-        """
-        Generar señal usando modelo ML
+            dict: Señal con tipo, fuerza, etc.
         """
         try:
-            if df is None or len(df) < 100:
-                logger.warning("Datos insuficientes para generar señal")
-                return self._no_signal()
+            if df is None or len(df) == 0:
+                logger.warning("DataFrame vacío")
+                return self._señal_neutral()
             
-            # Preparar features
-            ultima_fila = df.iloc[-1:].copy()
-            X = self._preparar_features(ultima_fila)
+            # ✅ GENERAR FEATURES COMPLETAS (CRÍTICO)
+            logger.info("🔧 Generando features completas...")
+            df = self.feature_engineer.generar_todas_features(df)
+            
+            if df is None or len(df) == 0:
+                logger.error("Error generando features")
+                return self._señal_neutral()
+            
+            # Preparar datos para predicción
+            X = self._preparar_features(df)
             
             if X is None or len(X) == 0:
-                logger.error("Error al preparar features")
-                return self._no_signal()
+                logger.error("Error preparando features")
+                return self._señal_neutral()
             
-            # Hacer predicción
-            prediccion = self.modelo.predict(X)[0]
+            # Predecir
+            prediccion = self.modelo.predict(X)
+            probabilidades = self.modelo.predict_proba(X)
             
-            # Obtener probabilidades
-            if hasattr(self.modelo, 'predict_proba'):
-                probabilidades = self.modelo.predict_proba(X)[0]
-                
-                # Clasificación multi-clase: -1=SELL, 0=NEUTRAL, 1=BUY
-                if len(probabilidades) == 3:
-                    prob_sell = probabilidades[0]
-                    prob_neutral = probabilidades[1]
-                    prob_buy = probabilidades[2]
-                # Clasificación binaria: 0=SELL, 1=BUY
-                elif len(probabilidades) == 2:
-                    prob_sell = probabilidades[0]
-                    prob_buy = probabilidades[1]
-                else:
-                    prob_buy = probabilidades[int(prediccion)]
-                    prob_sell = 1 - prob_buy
-            else:
-                # Sin probabilidades
-                if prediccion == 1:
-                    prob_buy = 0.8
-                    prob_sell = 0.2
-                elif prediccion == -1:
-                    prob_buy = 0.2
-                    prob_sell = 0.8
-                else:
-                    return self._no_signal()
+            # Obtener última predicción
+            accion_pred = prediccion[-1]
+            probs = probabilidades[-1]
             
-            # Determinar tipo de señal
-            if prob_buy > self.min_confidence and prob_buy > prob_sell:
-                signal_type = 'CALL'  # Compatibilidad con main.py
-                confidence = prob_buy
-            elif prob_sell > self.min_confidence and prob_sell > prob_buy:
-                signal_type = 'PUT'  # Compatibilidad con main.py
-                confidence = prob_sell
-            else:
-                return self._no_signal()
-            
-            # Calcular niveles
-            entry_price = float(df['close'].iloc[-1])
-            atr = float(df['atr'].iloc[-1]) if 'atr' in df.columns else entry_price * 0.001
-            
-            if signal_type == 'CALL':
-                stop_loss = entry_price - (2 * atr)
-                take_profit = entry_price + (3 * atr)
-            else:  # PUT
-                stop_loss = entry_price + (2 * atr)
-                take_profit = entry_price - (3 * atr)
-            
-            # Análisis de contexto
-            analisis = self._analizar_contexto(df, signal_type)
-            
-            # Construir señal (formato compatible con main.py)
-            señal = {
-                'tipo': signal_type,  # CALL o PUT
-                'probabilidad': float(confidence),
-                'confianza': 'ALTA' if confidence >= 0.75 else 'MEDIA',
-                'precio_actual': entry_price,
-                'stop_loss': stop_loss,
-                'take_profit': take_profit,
-                'analisis': analisis,
-                'features': X
+            # Mapear acción: -1=SELL, 0=HOLD, 1=BUY
+            mapa_acciones = {
+                -1: 'SELL',
+                0: 'HOLD',
+                1: 'BUY'
             }
             
-            logger.info(f"🎯 Señal ML generada: {signal_type} (prob={confidence:.3f})")
+            accion = mapa_acciones.get(accion_pred, 'HOLD')
+            confianza = float(np.max(probs))
+            
+            # Verificar umbral de confianza
+            if confianza < self.umbral_confianza:
+                logger.info(f"Confianza baja ({confianza:.2%}). Sin señal.")
+                return self._señal_neutral()
+            
+            # Solo operar BUY o SELL
+            if accion == 'HOLD':
+                return self._señal_neutral()
+            
+            # Obtener precio actual
+            precio_actual = float(df['close'].iloc[-1])
+            
+            # Calcular ATR para stop loss y take profit
+            atr = float(df['atr'].iloc[-1]) if 'atr' in df.columns else precio_actual * 0.001
+            
+            # Calcular niveles
+            if accion == 'BUY':
+                stop_loss = precio_actual - (2 * atr)
+                take_profit = precio_actual + (3 * atr)
+            else:  # SELL
+                stop_loss = precio_actual + (2 * atr)
+                take_profit = precio_actual - (3 * atr)
+            
+            # Generar razón
+            razon = self._generar_razon(df, accion, confianza)
+            
+            # ✅ FORMATO COMPATIBLE CON main.py
+            señal = {
+                'tipo': accion,                    # BUY, SELL o HOLD
+                'fuerza': confianza,               # ✅ CAMPO REQUERIDO
+                'confianza': confianza,
+                'razon': razon,
+                'timestamp': datetime.now(),
+                'precio_actual': precio_actual,    # ✅ CAMPO REQUERIDO
+                'stop_loss': stop_loss,
+                'take_profit': take_profit,
+                'lote': 0.01
+            }
+            
+            logger.info(f"✅ Señal generada: {accion} ({confianza:.2%})")
             
             return señal
             
         except Exception as e:
-            logger.error(f"❌ Error generando señal ML: {e}")
+            logger.error(f"❌ Error generando señal: {e}")
             import traceback
             traceback.print_exc()
-            return self._no_signal()
-    
-    
-    def _generar_señal_tecnica(self, df: pd.DataFrame) -> Dict:
-        """
-        Generar señal usando análisis técnico puro
-        """
-        try:
-            if len(df) == 0:
-                return self._no_signal()
-            
-            last_row = df.iloc[-1]
-            
-            # Calcular confianza
-            bullish_confidence = self._calculate_bullish_confidence(last_row)
-            bearish_confidence = self._calculate_bearish_confidence(last_row)
-            
-            # Determinar señal
-            if bullish_confidence > self.min_confidence and bullish_confidence > bearish_confidence:
-                signal_type = 'CALL'
-                confidence = bullish_confidence
-            elif bearish_confidence > self.min_confidence and bearish_confidence > bullish_confidence:
-                signal_type = 'PUT'
-                confidence = bearish_confidence
-            else:
-                return self._no_signal()
-            
-            # Calcular niveles
-            entry_price = float(df['close'].iloc[-1])
-            atr = float(last_row.get('atr', entry_price * 0.001))
-            
-            if signal_type == 'CALL':
-                stop_loss = entry_price - (2 * atr)
-                take_profit = entry_price + (3 * atr)
-            else:
-                stop_loss = entry_price + (2 * atr)
-                take_profit = entry_price - (3 * atr)
-            
-            # Razones
-            reasons = self._get_signal_reasons(last_row, signal_type)
-            
-            señal = {
-                'tipo': signal_type,
-                'probabilidad': float(confidence),
-                'confianza': 'ALTA' if confidence >= 0.75 else 'MEDIA',
-                'precio_actual': entry_price,
-                'stop_loss': stop_loss,
-                'take_profit': take_profit,
-                'analisis': reasons,
-                'features': None
-            }
-            
-            logger.info(f"🎯 Señal técnica generada: {signal_type} (conf={confidence:.2%})")
-            
-            return señal
-            
-        except Exception as e:
-            logger.error(f"❌ Error generando señal técnica: {e}")
-            return self._no_signal()
+            return self._señal_neutral()
     
     
     def _preparar_features(self, df):
-        """Preparar features para predicción ML"""
+        """Prepara features para el modelo"""
         try:
-            columnas_excluir = ['time', 'tick_volume', 'spread', 'real_volume', 
-                               'target', 'label', 'future_return', 'precio_futuro']
+            # Lista de features esperadas por el modelo
+            feature_cols = [
+                # Indicadores de tendencia
+                'sma_20', 'sma_50', 'sma_200', 'ema_9', 'ema_21',
+                'macd', 'macd_signal', 'macd_diff',
+                'adx', 'adx_pos', 'adx_neg',
+                
+                # Indicadores de momentum
+                'rsi', 'stoch_k', 'stoch_d',
+                
+                # Bollinger Bands
+                'bb_high', 'bb_mid', 'bb_low', 'bb_width', 'bb_position',
+                
+                # Volatilidad
+                'atr', 'atr_normalizado',
+                
+                # Volumen
+                'obv',
+                
+                # Patrones de velas
+                'body', 'body_abs', 'upper_shadow', 'lower_shadow',
+                'total_range', 'body_ratio', 'upper_shadow_ratio',
+                'lower_shadow_ratio', 'is_bullish', 'is_bearish',
+                'is_doji', 'is_hammer', 'is_shooting_star', 'is_engulfing',
+                
+                # Cambios de precio
+                'price_change', 'price_change_abs',
+                'momentum_3', 'momentum_5', 'momentum_10',
+                'roc_3', 'roc_5', 'roc_10'
+            ]
             
             X = df.copy()
             
-            for col in columnas_excluir:
-                if col in X.columns:
-                    X = X.drop(columns=[col])
+            # Verificar columnas faltantes
+            missing_cols = [col for col in feature_cols if col not in X.columns]
             
-            if X.isnull().any().any():
-                X = X.fillna(0)
+            if missing_cols:
+                logger.warning(f"⚠️  Columnas faltantes: {missing_cols[:5]}...")
+                for col in missing_cols:
+                    X[col] = 0.0
+            
+            # Seleccionar solo las features necesarias
+            X = X[feature_cols]
+            
+            # Reemplazar NaN/inf
+            X = X.replace([np.inf, -np.inf], 0)
+            X = X.fillna(0)
             
             return X
             
         except Exception as e:
-            logger.error(f"Error al preparar features: {e}")
+            logger.error(f"Error preparando features: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     
-    def _analizar_contexto(self, df, tipo_señal):
-        """Analizar contexto del mercado"""
-        analisis = []
-        
+    def _generar_razon(self, df, accion, confianza):
+        """Genera explicación de la señal"""
         try:
-            ultima = df.iloc[-1]
+            razones = []
+            
+            # Análisis de tendencia
+            if 'sma_20' in df.columns and 'close' in df.columns:
+                precio = df['close'].iloc[-1]
+                sma20 = df['sma_20'].iloc[-1]
+                
+                if precio > sma20:
+                    razones.append("Precio sobre SMA20")
+                else:
+                    razones.append("Precio bajo SMA20")
             
             # RSI
             if 'rsi' in df.columns:
-                rsi = ultima['rsi']
+                rsi = df['rsi'].iloc[-1]
                 if rsi > 70:
-                    analisis.append(f"RSI sobrecomprado ({rsi:.1f})")
+                    razones.append(f"RSI sobrecomprado ({rsi:.1f})")
                 elif rsi < 30:
-                    analisis.append(f"RSI sobrevendido ({rsi:.1f})")
+                    razones.append(f"RSI sobrevendido ({rsi:.1f})")
             
-            # Tendencia
-            if 'sma_20' in df.columns and 'sma_50' in df.columns:
-                if ultima['close'] > ultima['sma_20'] > ultima['sma_50']:
-                    analisis.append("Tendencia alcista")
-                elif ultima['close'] < ultima['sma_20'] < ultima['sma_50']:
-                    analisis.append("Tendencia bajista")
+            # Confianza del modelo
+            razones.append(f"Confianza: {confianza:.1%}")
             
-            # MACD
-            if 'macd' in df.columns and 'macd_signal' in df.columns:
-                if ultima['macd'] > ultima['macd_signal']:
-                    analisis.append("MACD alcista")
-                else:
-                    analisis.append("MACD bajista")
-            
-            # Volatilidad
-            if 'atr_normalizado' in df.columns:
-                if ultima['atr_normalizado'] > 0.002:
-                    analisis.append("Alta volatilidad")
+            return " | ".join(razones) if razones else "Análisis del modelo"
             
         except Exception as e:
-            logger.error(f"Error en análisis: {e}")
-        
-        return analisis
+            logger.error(f"Error generando razón: {e}")
+            return "Señal del modelo"
     
     
-    def _calculate_bullish_confidence(self, row: pd.Series) -> float:
-        """Calcular confianza alcista"""
-        confidence = 0.0
-        
-        # RSI
-        rsi = row.get('rsi', 50)
-        if rsi < self.rsi_oversold:
-            confidence += 0.3
-        
-        # MACD
-        if row.get('macd', 0) > row.get('macd_signal', 0):
-            confidence += 0.2
-        
-        # Precio vs SMA
-        if row.get('close', 0) > row.get('sma_20', 0):
-            confidence += 0.2
-        
-        # Patrón alcista
-        if row.get('is_hammer', 0) == 1:
-            confidence += 0.15
-        
-        # Impulso alcista
-        if row.get('impulso_alcista', 0) == 1:
-            confidence += 0.15
-        
-        return min(confidence, 1.0)
-    
-    
-    def _calculate_bearish_confidence(self, row: pd.Series) -> float:
-        """Calcular confianza bajista"""
-        confidence = 0.0
-        
-        # RSI
-        rsi = row.get('rsi', 50)
-        if rsi > self.rsi_overbought:
-            confidence += 0.3
-        
-        # MACD
-        if row.get('macd', 0) < row.get('macd_signal', 0):
-            confidence += 0.2
-        
-        # Precio vs SMA
-        if row.get('close', 0) < row.get('sma_20', 0):
-            confidence += 0.2
-        
-        # Patrón bajista
-        if row.get('is_shooting_star', 0) == 1:
-            confidence += 0.15
-        
-        # Impulso bajista
-        if row.get('impulso_bajista', 0) == 1:
-            confidence += 0.15
-        
-        return min(confidence, 1.0)
-    
-    
-    def _get_signal_reasons(self, row: pd.Series, signal_type: str) -> List[str]:
-        """Obtener razones de la señal"""
-        reasons = []
-        
-        if signal_type == 'CALL':
-            if row.get('rsi', 50) < self.rsi_oversold:
-                reasons.append("RSI en sobreventa")
-            if row.get('macd', 0) > row.get('macd_signal', 0):
-                reasons.append("MACD alcista")
-            if row.get('is_hammer', 0) == 1:
-                reasons.append("Patrón martillo")
-        else:  # PUT
-            if row.get('rsi', 50) > self.rsi_overbought:
-                reasons.append("RSI en sobrecompra")
-            if row.get('macd', 0) < row.get('macd_signal', 0):
-                reasons.append("MACD bajista")
-            if row.get('is_shooting_star', 0) == 1:
-                reasons.append("Patrón estrella fugaz")
-        
-        return reasons
-    
-    
-    def _no_signal(self) -> Dict:
-        """Retornar señal nula (compatible con main.py)"""
+    def _señal_neutral(self):
+        """Retorna señal neutral (HOLD)"""
         return {
-            'tipo': 'NEUTRAL',
-            'probabilidad': 0.5,
-            'confianza': 'BAJA',
+            'tipo': 'HOLD',
+            'fuerza': 0.0,
+            'confianza': 0.0,
+            'razon': 'Sin señal clara',
+            'timestamp': datetime.now(),
             'precio_actual': 0.0,
             'stop_loss': 0.0,
             'take_profit': 0.0,
-            'analisis': ['Sin señal clara'],
-            'features': None
+            'lote': 0.0
         }
-    
-    
-    # Métodos de compatibilidad con código antiguo
-    def generate_signal(self, df: pd.DataFrame, features: pd.DataFrame = None) -> Dict:
-        """Método de compatibilidad (llama a generar_señal)"""
-        if features is not None and len(features) > 0:
-            return self.generar_señal(features)
-        return self.generar_señal(df)
