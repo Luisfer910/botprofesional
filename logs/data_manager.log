@@ -517,3 +517,42 @@
 2025-11-25 12:06:37,724 - INFO - 
 🎯 Top 10 Features más importantes:
 2025-11-25 12:06:37,774 - INFO - ✅ Modelo guardado: models\modelo_historico_2025-11-25_12-06-37.pkl (26123.63 KB)
+2025-11-25 13:12:30,267 - INFO - Descargando 20000 velas de EURUSD M5
+2025-11-25 13:12:30,274 - INFO - Datos históricos cargados: 20000 velas
+2025-11-25 13:12:33,403 - INFO - 🚀 Iniciando generación completa de features...
+2025-11-25 13:12:33,403 - INFO - 🔧 Generando features básicas...
+2025-11-25 13:12:33,797 - INFO - ✅ Features básicas generadas: 22 features
+2025-11-25 13:12:33,806 - INFO - 🔧 Generando features de precio...
+2025-11-25 13:12:33,824 - INFO - ✅ Features de precio generadas
+2025-11-25 13:12:33,829 - INFO - 🔧 Detectando soportes y resistencias...
+2025-11-25 13:12:33,924 - INFO - ✅ Detectados 5 resistencias y 5 soportes
+2025-11-25 13:12:33,946 - INFO - 🔧 Generando features de impulsos...
+2025-11-25 13:12:33,953 - INFO - ✅ Features de impulsos generadas
+2025-11-25 13:12:33,955 - INFO - 🔧 Generando features de volatilidad...
+2025-11-25 13:12:33,955 - INFO - ✅ Features de volatilidad generadas
+2025-11-25 13:12:33,971 - INFO - 🔧 Generando features temporales...
+2025-11-25 13:12:33,986 - INFO - ✅ Features temporales generadas
+2025-11-25 13:12:33,990 - INFO - 🎯 Generando target (horizonte: 5, umbral: 0.01%)...
+2025-11-25 13:12:34,002 - INFO - 📊 Distribución del Target:
+2025-11-25 13:12:34,002 - INFO -    Compra (1):   7640 ( 38.2%)
+2025-11-25 13:12:34,002 - INFO -    Neutral (0):  4660 ( 23.3%)
+2025-11-25 13:12:34,002 - INFO -    Venta (-1):   7695 ( 38.5%)
+2025-11-25 13:12:34,002 - INFO - ✅ Generación completa de features finalizada
+2025-11-25 13:12:34,002 - INFO -    Total de features: 80
+2025-11-25 13:12:34,002 - INFO -    Total de muestras: 19796
+2025-11-25 13:12:34,002 - INFO - ✅ HistoricalTrainer inicializado
+2025-11-25 13:12:34,034 - INFO - ✅ Datos preparados: 19796 muestras, 75 features
+2025-11-25 13:12:34,054 - INFO - 📊 Distribución de datos:
+2025-11-25 13:12:34,054 - INFO -    Training: 15836 muestras
+2025-11-25 13:12:34,054 - INFO -    Testing: 3960 muestras
+2025-11-25 13:12:34,054 - INFO - 🤖 Entrenando Random Forest...
+2025-11-25 13:12:38,446 - INFO - ✅ Modelo entrenado exitosamente!
+2025-11-25 13:12:38,446 - INFO -    Accuracy Training: 0.9791
+2025-11-25 13:12:38,446 - INFO -    Accuracy Testing: 0.5679
+2025-11-25 13:12:38,446 - INFO - 
+📈 Reporte de Clasificación:
+2025-11-25 13:12:38,446 - INFO - 
+🔢 Matriz de Confusión:
+2025-11-25 13:12:38,487 - INFO - 
+🎯 Top 10 Features más importantes:
+2025-11-25 13:12:38,541 - INFO - ✅ Modelo guardado: models\modelo_hibrido_2025-11-25_13-12-38.pkl (25826.45 KB)
