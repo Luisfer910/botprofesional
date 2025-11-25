@@ -111,7 +111,7 @@ def main():
             print("   Puedes detener con Ctrl+C si lo deseas\n")
             
             try:
-                df_live = data_manager.observar_mercado_live(duracion_minutos=60)
+                df_live = data_manager.observar_mercado_live(duracion_minutos=10)
                 
                 if df_live is not None and len(df_live) > 0:
                     print_success(f"Observación completada: {len(df_live)} ticks capturados")
