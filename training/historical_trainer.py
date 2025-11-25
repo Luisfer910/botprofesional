@@ -182,8 +182,8 @@ class HistoricalTrainer:
             
             timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
             
-            # Nombre del archivo
-            filename = f"modelo_historico_{timestamp}.pkl"
+            # ✅ NOMBRE CORRECTO: modelo_hibrido
+            filename = f"modelo_hibrido_{timestamp}.pkl"
             path = os.path.join('models', filename)
             
             # Preparar metadata
@@ -192,7 +192,7 @@ class HistoricalTrainer:
             
             metadata.update({
                 'timestamp': timestamp,
-                'tipo': 'historico',
+                'tipo': 'hibrido',
                 'modelo_clase': type(modelo).__name__
             })
             
