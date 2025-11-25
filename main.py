@@ -15,13 +15,15 @@ import joblib
 import glob
 import sys
 
+# Agregar directorio actual al path para evitar problemas de importación
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from core.mt5_connector import MT5Connector
 from core.data_manager import DataManager
 from core.feature_engineer import FeatureEngineer
-from trading.signal_generator import SignalGenerator
-from trading.risk_manager import RiskManager
-from trading.order_executor import OrderExecutor
-
+from strategy.signal_generator import SignalGenerator
+from strategy.risk_manager import RiskManager
+from strategy.trade_executor import TradeExecutor as OrderExecutor
 
 class TradingBot:
     """Bot de Trading Principal"""
