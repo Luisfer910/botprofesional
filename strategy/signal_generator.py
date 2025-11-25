@@ -148,13 +148,21 @@ class SignalGenerator:
     def _preparar_features(self, df):
         """
         Prepara features para el modelo
-        ✅ USA TODAS LAS COLUMNAS (excepto las excluidas)
+        ✅ EXCLUYE LAS MISMAS COLUMNAS QUE EN ENTRENAMIENTO
         """
         try:
-            # ✅ COLUMNAS A EXCLUIR (igual que en entrenamiento)
+            # ✅ COLUMNAS A EXCLUIR (IGUAL QUE EN historical_trainer.py)
             columnas_excluir = [
-                'time', 'tick_volume', 'spread', 'real_volume',
-                'target', 'target_clasificacion', 'retorno_futuro'
+                'time',
+                'target',
+                'label',
+                'future_return',      # ✅ CRÍTICO: Esta columna causaba el error
+                'precio_futuro',
+                'tick_volume',
+                'spread',
+                'real_volume',
+                'target_clasificacion',
+                'retorno_futuro'
             ]
             
             # Seleccionar todas las columnas excepto las excluidas
