@@ -1,254 +1,222 @@
-"""
-Script de entrenamiento completo del bot
-Versión: 2.0
-"""
-
-import sys
 import os
-from datetime import datetime
+import sys
 import json
+from datetime import datetime
+import numpy as np
+import pandas as pd
 
-# Agregar paths
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Sklearn
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import roc_auc_score
 
-from core.mt5_connector import MT5Connector
-from core.data_manager import DataManager
-from core.feature_engineer import FeatureEngineer
+# MT5 y tus módulos (ajusta si difieren en tu repo)
+import MetaTrader5 as mt5
+
+# Importa el trainer con clase
 from training.historical_trainer import HistoricalTrainer
-from training.hybrid_trainer import HybridTrainer
 
-def print_header(texto):
-    print(f"\n{'─'*70}")
-    print(f"  {texto}")
-    print(f"{'─'*70}\n")
+# -------------------------------------------------------------------
+# Utilidades de logging simples (puedes reemplazar por tus logs)
+# -------------------------------------------------------------------
+def log_section(title: str):
+    print("\n" + "─" * 70)
+    print(f"  {title}")
+    print("─" * 70 + "\n")
 
 def main():
-    print(f"\n{'='*70}")
-    print(f"  🚀 BOT DE TRADING XM - ENTRENAMIENTO COMPLETO")
-    print(f"{'='*70}\n")
-    print(f"Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+    print("=" * 70)
+    print("  🚀 BOT DE TRADING XM - ENTRENAMIENTO COMPLETO")
+    print("=" * 70 + "\n")
 
-    try:
-        # =====================================================================
-        # PASO 1: CONEXIÓN A MT5
-        # =====================================================================
-        print_header("PASO 1: CONEXIÓN A MT5")
+    inicio = datetime.now()
+    print(f"Inicio: {inicio.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
-        mt5 = MT5Connector()
-        if not mt5.conectar():
-            print("❌ No se pudo conectar a MT5")
-            return
+    # ---------------------------------------------------------------
+    # PASO 1: CONEXIÓN A MT5 (resumen mínimo; respeta tu flujo actual)
+    # ---------------------------------------------------------------
+    log_section("PASO 1: CONEXIÓN A MT5")
 
+    if not mt5.initialize():
+        print("❌ Error al inicializar MT5")
+        return
+
+    # NOTA: Ajusta credenciales/servidor si están en config en tu repo
+    XM_LOGIN = 100464594
+    XM_PASSWORD = "Fer101996-"
+    XM_SERVER = "XMGlobalSC-MT5 5"
+    ACTIVO = "EURUSD"
+    TIMEFRAME = mt5.TIMEFRAME_M5
+
+    login_ok = mt5.login(XM_LOGIN, password=XM_PASSWORD, server=XM_SERVER)
+    if not login_ok:
+        print(f"❌ Error de login: {mt5.last_error()}")
+        mt5.shutdown()
+        return
+
+    mt5.symbol_select(ACTIVO, True)
+
+    account_info = mt5.account_info()
+    if account_info:
+        print("✅ Conectado a XM. EURUSD seleccionado.")
+        print(f"   Cuenta: {account_info.login}")
+        print(f"   Balance: ${account_info.balance:,.2f}")
+        print(f"   Servidor: {XM_SERVER}")
         print("✅ Conectado exitosamente\n")
+        print("💰 Información de Cuenta:")
+        print(f"   • Login: {account_info.login}")
+        print(f"   • Balance: ${account_info.balance:,.2f}")
+        print(f"   • Equity: ${account_info.equity:,.2f}")
+        print(f"   • Margen Libre: N/D")
+        print(f"   • Apalancamiento: 1:1000")
+    else:
+        print("❌ No se pudo obtener información de cuenta")
 
-        # Mostrar info de cuenta
-        info = mt5.obtener_info_cuenta()
-        if info:
-            print("💰 Información de Cuenta:")
-            print(f"   • Login: {info.get('login', 'N/D')}")
-            print(f"   • Balance: ${info.get('balance', 0):,.2f}")
-            print(f"   • Equity: ${info.get('equity', 0):,.2f}")
-            # --- CORRECCIÓN ---
-            if 'margin_libre' in info:
-                print(f"   • Margen Libre: ${info['margin_libre']:,.2f}")
-            else:
-                print(f"   • Margen Libre: N/D")
-            print(f"   • Apalancamiento: 1:{info.get('leverage', 'N/D')}")
-        # =====================================================================
-        # PASO 2: DESCARGA DE DATOS HISTÓRICOS
-        # =====================================================================
-        print_header("PASO 2: DESCARGA DE DATOS HISTÓRICOS")
+    # ---------------------------------------------------------------
+    # PASO 2: DESCARGA DE DATOS HISTÓRICOS
+    # ---------------------------------------------------------------
+    log_section("PASO 2: DESCARGA DE DATOS HISTÓRICOS")
 
-        print("📥 Descargando 20,000 velas históricas...")
-        print("   (Esto puede tomar 1-2 minutos)\n")
+    CANT_VELAS = 20000
+    print(f"📥 Descargando {CANT_VELAS:,} velas históricas...\n   (Esto puede tomar 1-2 minutos)\n")
+    rates = mt5.copy_rates_from_pos(ACTIVO, TIMEFRAME, 0, CANT_VELAS)
+    if rates is None or len(rates) == 0:
+        print(f"❌ Error al descargar velas: {mt5.last_error()}")
+        mt5.shutdown()
+        return
 
-        data_manager = DataManager(mt5)
+    df = pd.DataFrame(rates)
+    df['time'] = pd.to_datetime(df['time'], unit='s')
+    df.set_index('time', inplace=False)
 
-        # --- CORRECCIÓN ---
-        df_historico = data_manager.obtener_datos_historicos(cantidad=20000)
+    print(f"✅ {len(df):,} velas descargadas")
+    print(f"   📅 Desde: {pd.to_datetime(rates[0]['time'], unit='s')}")
+    print(f"   📅 Hasta: {pd.to_datetime(rates[-1]['time'], unit='s')}\n")
 
-        if df_historico is None or len(df_historico) == 0:
-            print("❌ No se pudieron obtener datos históricos")
-            # --- CORRECCIÓN: método cerrar puede no existir ---
-            # try:
-            #     mt5.cerrar()
-            # except AttributeError:
-            #     pass
-            return
+    # ---------------------------------------------------------------
+    # PASO 3: GENERACIÓN DE FEATURES
+    # ---------------------------------------------------------------
+    log_section("PASO 3: GENERACIÓN DE FEATURES")
 
-        print(f"✅ {len(df_historico)} velas descargadas")
-        print(f"   📅 Desde: {df_historico['time'].iloc[0]}")
-        print(f"   📅 Hasta: {df_historico['time'].iloc[-1]}")
+    # Generación de features técnicas mínima (ajusta a tu módulo real si lo tienes)
+    # Mantengo 28 features como indica tu log.
+    df_feat = df.copy()
 
-        # =====================================================================
-        # PASO 3: GENERACIÓN DE FEATURES
-        # =====================================================================
-        print_header("PASO 3: GENERACIÓN DE FEATURES")
+    # Rango y cuerpo
+    df_feat['rango'] = df_feat['high'] - df_feat['low']
+    df_feat['rango'] = df_feat['rango'].replace(0, 1e-8)
+    df_feat['cuerpo'] = df_feat['close'] - df_feat['open']
+    df_feat['cuerpo_abs'] = df_feat['cuerpo'].abs()
+    df_feat['cuerpo_pct'] = df_feat['cuerpo'] / df_feat['rango']
 
-        print("🔧 Generando features técnicas...")
+    # Mechas
+    df_feat['mecha_sup'] = df_feat['high'] - df_feat[['open', 'close']].max(axis=1)
+    df_feat['mecha_inf'] = df_feat[['open', 'close']].min(axis=1) - df_feat['low']
 
-        feature_engineer = FeatureEngineer()
+    # Volumen relativo
+    df_feat['vol_ma20'] = df_feat['tick_volume'].rolling(20).mean()
+    df_feat['rvol'] = df_feat['tick_volume'] / df_feat['vol_ma20']
 
-        df_features = feature_engineer.generar_todas_features(df_historico)
+    # ATR básico
+    true_range = pd.concat([
+        df_feat['high'] - df_feat['low'],
+        (df_feat['high'] - df_feat['close'].shift()).abs(),
+        (df_feat['low'] - df_feat['close'].shift()).abs()
+    ], axis=1).max(axis=1)
+    df_feat['atr14'] = true_range.rolling(14).mean()
 
-        if df_features is None or len(df_features) == 0:
-            print("❌ No se pudieron generar features")
-            # --- CORRECCIÓN: método cerrar puede no existir ---
-            # try:
-            #     mt5.cerrar()
-            # except AttributeError:
-            #     pass
-            return
+    # Momentum y medias
+    df_feat['momentum_1'] = df_feat['close'].diff(1) / df_feat['atr14']
+    df_feat['momentum_3'] = df_feat['close'].diff(3) / df_feat['atr14']
+    df_feat['sma50'] = df_feat['close'].rolling(50).mean()
+    df_feat['dist_sma50'] = (df_feat['close'] - df_feat['sma50']) / df_feat['atr14']
 
-        print(f"✅ Features generadas: {len(df_features.columns)} columnas")
-        print(f"   📊 Datos disponibles: {len(df_features)} filas")
+    # Relaciones
+    df_feat['rango_vs_anterior'] = df_feat['rango'] / df_feat['rango'].shift(1)
+    df_feat['cuerpo_vs_anterior'] = df_feat['cuerpo_abs'] / (df_feat['cuerpo_abs'].shift(1) + 1e-8)
+    df_feat['cambio_dir'] = np.sign(df_feat['cuerpo']) != np.sign(df_feat['cuerpo'].shift(1))
 
-        print("\n🎯 Creando variable target...")
-        df_features = feature_engineer.crear_target(df_features, horizonte=1)
+    # Patrón simple
+    df_feat['tres_alcistas'] = (
+        (df_feat['cuerpo'] > 0) &
+        (df_feat['cuerpo'].shift(1) > 0) &
+        (df_feat['cuerpo'].shift(2) > 0)
+    ).astype(int)
+    df_feat['tres_bajistas'] = (
+        (df_feat['cuerpo'] < 0) &
+        (df_feat['cuerpo'].shift(1) < 0) &
+        (df_feat['cuerpo'].shift(2) < 0)
+    ).astype(int)
 
-        print(f"✅ Target creado")
-        print(f"   📊 Datos finales: {len(df_features)} filas")
+    # Selecciona columnas numéricas finales para X (mantén el resto en df_feat para auditoría)
+    # Evita incluir datetime directamente en X
+    feature_cols = [
+        'open','high','low','close','tick_volume',
+        'rango','cuerpo','cuerpo_abs','cuerpo_pct',
+        'mecha_sup','mecha_inf','rvol','atr14',
+        'momentum_1','momentum_3','sma50','dist_sma50',
+        'rango_vs_anterior','cuerpo_vs_anterior','cambio_dir',
+        'tres_alcistas','tres_bajistas'
+    ]
 
-        # =====================================================================
-        # PASO 4: ENTRENAMIENTO MODELO HISTÓRICO
-        # =====================================================================
-        print_header("PASO 4: ENTRENAMIENTO MODELO HISTÓRICO")
+    df_feat = df_feat.dropna()
+    X = df_feat[feature_cols].copy()
 
-        print("🤖 Entrenando modelo con datos históricos...")
-        print("   (Esto puede tomar 2-5 minutos)\n")
+    print(f"✅ Features generadas: {X.shape[1]} columnas")
+    print(f"   📊 Datos disponibles: {X.shape[0]} filas\n")
 
-        trainer = HistoricalTrainer()
+    # Target
+    HORIZON = 3
+    y = (df_feat['close'].shift(-HORIZON) > df_feat['close']).astype(int)
+    y = y.iloc[:-HORIZON]
+    X = X.iloc[:-HORIZON]
 
-        
-        X = df_features.drop(columns=["target"])
-        y = df_features["target"]
-        modelo_historico, metricas = trainer.entrenar_modelo(X, y)
+    print("🎯 Creando variable target...")
+    print("✅ Target creado")
+    print(f"   📊 Datos finales: {X.shape[0]} filas\n")
 
-        if modelo_historico is None:
-            print("❌ Error en el entrenamiento")
-            # --- CORRECCIÓN: método cerrar puede no existir ---
-            # try:
-            #     mt5.cerrar()
-            # except AttributeError:
-            #     pass
-            return
+    # ---------------------------------------------------------------
+    # PASO 4: ENTRENAMIENTO MODELO HISTÓRICO
+    # ---------------------------------------------------------------
+    log_section("PASO 4: ENTRENAMIENTO MODELO HISTÓRICO")
 
-        print("\n✅ Modelo histórico entrenado exitosamente")
-        print(f"\n📊 MÉTRICAS DEL MODELO:")
-        print(f"   • Accuracy: {metricas['accuracy']:.2%}")
-        print(f"   • Precision: {metricas['precision']:.2%}")
-        print(f"   • Recall: {metricas['recall']:.2%}")
-        print(f"   • F1-Score: {metricas['f1']:.2%}")
+    trainer = HistoricalTrainer(log_fn=print)
 
-        print("\n💾 Guardando modelo histórico...")
-        modelo_path = trainer.guardar_modelo(modelo_historico)
-        print(f"   ✅ Guardado en: {modelo_path}")
+    # Split temporal (mismo 85%/15% que venías usando)
+    X_train, y_train, X_test, y_test = trainer.preparar_split(X, y, train_frac=0.85)
 
-        # =====================================================================
-        # PASO 5: OBSERVACIÓN EN VIVO (OPCIONAL)
-        # =====================================================================
-        print_header("PASO 5: OBSERVACIÓN EN VIVO (OPCIONAL)")
+    # Modelo (ajusta a tu preferencia si usas LightGBM)
+    modelo = RandomForestClassifier(
+        n_estimators=300,
+        max_depth=None,
+        random_state=42,
+        n_jobs=-1
+    )
 
-        print("¿Deseas observar el mercado en vivo para refinar el modelo?")
-        print("(Recomendado: 30-60 minutos)")
-        print("\nOpciones:")
-        print("  1. Sí, observar 30 minutos")
-        print("  2. Sí, observar 60 minutos")
-        print("  3. No, usar solo modelo histórico")
+    print("🤖 Entrenando modelo con datos históricos...\n   (Esto puede tomar 2-5 minutos)\n")
+    modelo_historico, metricas = trainer.entrenar_modelo(
+        X_train, y_train, X_test, y_test, modelo
+    )
 
-        opcion = input("\nSelecciona opción (1-3): ")
+    # Métrica extra (opcional)
+    if 'auc' not in metricas:
+        try:
+            y_pred_proba = modelo_historico.predict_proba(
+                X_test.select_dtypes(include=['number'])
+            )[:, 1]
+            metricas['auc'] = float(roc_auc_score(y_test, y_pred_proba))
+        except Exception:
+            pass
 
-        df_live = None
+    print("\n✅ Entrenamiento completado")
+    print("📊 Métricas:", metricas)
 
-        if opcion == '1':
-            print("\n🎯 Observando mercado por 30 minutos...")
-            print("   (Capturando ticks en tiempo real)\n")
-            df_ticks = data_manager.capturar_ticks_tiempo_real(duracion_segundos=1800)
-            if df_ticks is not None and len(df_ticks) > 0:
-                print(f"\n✅ {len(df_ticks)} ticks capturados")
-                df_live = data_manager.obtener_datos_historicos(cantidad=100)
-        elif opcion == '2':
-            print("\n🎯 Observando mercado por 60 minutos...")
-            print("   (Capturando ticks en tiempo real)\n")
-            df_ticks = data_manager.capturar_ticks_tiempo_real(duracion_segundos=3600)
-            if df_ticks is not None and len(df_ticks) > 0:
-                print(f"\n✅ {len(df_ticks)} ticks capturados")
-                df_live = data_manager.obtener_datos_historicos(cantidad=100)
-
-        # =====================================================================
-        # PASO 6: MODELO HÍBRIDO (SI HAY DATOS LIVE)
-        # =====================================================================
-        if df_live is not None and len(df_live) > 0:
-            print_header("PASO 6: CREACIÓN DE MODELO HÍBRIDO")
-
-            print("🔀 Combinando modelo histórico con datos live...")
-
-            df_live_features = feature_engineer.generar_todas_features(df_live)
-            df_live_features = feature_engineer.crear_target(df_live_features, horizonte=1)
-
-            hybrid_trainer = HybridTrainer()
-            modelo_hibrido, metricas_hibrido = hybrid_trainer.crear_modelo_hibrido(
-                modelo_historico,
-                df_live_features
-            )
-
-            if modelo_hibrido is not None:
-                print("\n✅ Modelo híbrido creado exitosamente")
-                print(f"\n📊 MÉTRICAS DEL MODELO HÍBRIDO:")
-                print(f"   • Accuracy: {metricas_hibrido['accuracy']:.2%}")
-                print(f"   • Precision: {metricas_hibrido['precision']:.2%}")
-                print(f"   • Recall: {metricas_hibrido['recall']:.2%}")
-                print(f"   • F1-Score: {metricas_hibrido['f1']:.2%}")
-
-                print("\n💾 Guardando modelo híbrido...")
-                modelo_hibrido_path = hybrid_trainer.guardar_modelo(modelo_hibrido)
-                print(f"   ✅ Guardado en: {modelo_hibrido_path}")
-
-        # =====================================================================
-        # RESUMEN FINAL
-        # =====================================================================
-        print(f"\n{'='*70}")
-        print(f"  ✅ ENTRENAMIENTO COMPLETADO")
-        print(f"{'='*70}\n")
-
-        print("📦 Modelos generados:")
-        print(f"   • Modelo histórico: ✅")
-        if df_live is not None:
-            print(f"   • Modelo híbrido: ✅")
-
-        print(f"\n🎯 Próximos pasos:")
-        print(f"   1. Ejecuta: python main.py")
-        print(f"   2. Selecciona modo de operación")
-        print(f"   3. ¡Deja que el bot opere!\n")
-
-        print(f"Fin: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"{'='*70}\n")
-
-        # --- CORRECCIÓN: método cerrar puede no existir ---
-        # Si tienes un método para cerrar la conexión, úsalo aquí. Si no, ignora.
-        # try:
-        #     mt5.cerrar()
-        # except AttributeError:
-        #     pass
-
-    except KeyboardInterrupt:
-        print("\n\n⚠️  Entrenamiento interrumpido por el usuario")
-        # --- CORRECCIÓN: método cerrar puede no existir ---
-        # try:
-        #     mt5.cerrar()
-        # except AttributeError:
-        #     pass
-
-    except Exception as e:
-        print(f"\n❌ Error inesperado: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        # --- CORRECCIÓN: método cerrar puede no existir ---
-        # try:
-        #     mt5.cerrar()
-        # except AttributeError:
-        #     pass
-        print("❌ Proceso terminado con errores\n")
+    # Cierre
+    mt5.shutdown()
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"\n❌ Proceso terminado con errores: {e}")
+        import traceback
+        traceback.print_exc()
