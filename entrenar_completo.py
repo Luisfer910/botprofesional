@@ -172,15 +172,24 @@ def main():
         
         logger.info("🔄 Entrenando modelo híbrido...")
         
-        trainer_hibrido = HybridTrainer()
+        # Cargar el modelo histórico recién entrenado
+        trainer_hibrido = HybridTrainer(
+            modelo_historico=modelo_historico,
+            peso_historico=0.7,
+            n_estimators=200
+        )
+        
+        # Usar últimas 1000 velas como datos de "tiempo real"
         modelo_hibrido = trainer_hibrido.entrenar(
             df_historico=df_features,
-            df_tiempo_real=df_features.tail(1000)  # Últimas 1000 velas
+            df_tiempo_real=df_features.tail(1000)
         )
         
         if modelo_hibrido:
             trainer_hibrido.guardar_modelo('models/modelo_hibrido.pkl')
             logger.info("✅ Modelo híbrido entrenado y guardado")
+        else:
+            logger.warning("⚠️ No se pudo entrenar el modelo híbrido")
         
         # ──────────────────────────────────────────────────────────────
         # FINALIZACIÓN
@@ -195,6 +204,9 @@ def main():
         print("="*70)
         logger.info(f"⏱️  Tiempo total: {duracion:.1f} segundos")
         logger.info(f"📁 Modelos guardados en: ./models/")
+        logger.info(f"\n🚀 SIGUIENTE PASO:")
+        logger.info(f"   Ejecuta: python main.py")
+        logger.info(f"   Para iniciar el bot en modo producción")
         
     except Exception as e:
         logger.error(f"❌ Error en el proceso: {e}")
