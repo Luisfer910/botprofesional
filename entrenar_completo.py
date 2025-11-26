@@ -104,7 +104,8 @@ def main():
         feature_engineer = FeatureEngineer()
         
         logger.info("🔧 Generando features técnicas...")
-        df_features = feature_engineer.generar_features(df)
+        # ✅ CAMBIO CRÍTICO: generar_todas_features en lugar de generar_features
+        df_features = feature_engineer.generar_todas_features(df)
         
         if df_features is None or df_features.empty:
             logger.error("❌ Error generando features")
