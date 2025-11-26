@@ -1,219 +1,139 @@
-"""
-Script de entrenamiento completo del bot
-Versión: 3.0
-Fecha: 2024
-"""
-
-import sys
-import os
-import pandas as pd
-import numpy as np
 import MetaTrader5 as mt5
+import pandas as pd
+import time
 from datetime import datetime
 import logging
+import sys
 
-# Configurar logging
+# Importaciones de tus módulos (Asegúrate de que existan en las carpetas)
+from config import CUENTA, PASSWORD, SERVIDOR, SYMBOL, TIMEFRAME
+from core.data_handler import DataHandler
+from core.feature_engineer import FeatureEngineer
+from training.historical_trainer import HistoricalTrainer
+from training.hybrid_trainer import HybridTrainer # El que acabamos de arreglar
+
+# Configuración de Logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
 )
 logger = logging.getLogger(__name__)
 
-# Importar módulos del proyecto
-from training.historical_trainer import HistoricalTrainer
-from training.hybrid_trainer import HybridTrainer
-from core.data_manager import DataManager
-from core.feature_engineer import FeatureEngineer
-
 def main():
-    """
-    Función principal de entrenamiento
-    """
     print("\n" + "="*70)
-    print("  🚀 BOT DE TRADING XM - ENTRENAMIENTO COMPLETO")
+    print("  🚀 BOT DE TRADING XM - ENTRENAMIENTO COMPLETO (CORREGIDO)")
     print("="*70 + "\n")
     
-    inicio = datetime.now()
-    logger.info(f"Inicio: {inicio.strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info(f"Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+    # -----------------------------------------------------------
+    # PASO 1: CONEXIÓN A MT5
+    # -----------------------------------------------------------
+    print("\n" + "─"*70)
+    print("  PASO 1: CONEXIÓN A MT5")
+    print("─"*70 + "\n")
     
-    try:
-        # ──────────────────────────────────────────────────────────────
-        # PASO 1: CONEXIÓN A MT5
-        # ──────────────────────────────────────────────────────────────
-        print("\n" + "─"*70)
-        print("  PASO 1: CONEXIÓN A MT5")
-        print("─"*70 + "\n")
-        
-        if not mt5.initialize():
-            logger.error("❌ Error al inicializar MT5")
-            return
-        
-        # Credenciales XM
-        XM_LOGIN = 100464594
-        XM_PASSWORD = "Fer101996-"
-        XM_SERVER = "XMGlobalSC-MT5 5"
-        
-        login_ok = mt5.login(XM_LOGIN, password=XM_PASSWORD, server=XM_SERVER)
-        if not login_ok:
-            logger.error(f"❌ Error de login: {mt5.last_error()}")
-            mt5.shutdown()
-            return
-        
+    if not mt5.initialize():
+        logger.error("❌ Fallo al iniciar MT5")
+        return
+
+    authorized = mt5.login(CUENTA, password=PASSWORD, server=SERVIDOR)
+    if authorized:
         logger.info("✅ Conectado exitosamente a XM")
-        
         account_info = mt5.account_info()
-        if account_info:
-            logger.info(f"💰 Balance: ${account_info.balance:,.2f}")
-            logger.info(f"📊 Equity: ${account_info.equity:,.2f}")
-        
-        # ──────────────────────────────────────────────────────────────
-        # PASO 2: DESCARGA DE DATOS HISTÓRICOS
-        # ──────────────────────────────────────────────────────────────
-        print("\n" + "─"*70)
-        print("  PASO 2: DESCARGA DE DATOS HISTÓRICOS")
-        print("─"*70 + "\n")
-        
-        ACTIVO = "EURUSD"
-        TIMEFRAME = mt5.TIMEFRAME_M5
-        CANT_VELAS = 20000
-        
-        mt5.symbol_select(ACTIVO, True)
-        
-        logger.info(f"📥 Descargando {CANT_VELAS:,} velas de {ACTIVO}...")
-        rates = mt5.copy_rates_from_pos(ACTIVO, TIMEFRAME, 0, CANT_VELAS)
-        
-        if rates is None or len(rates) == 0:
-            logger.error(f"❌ Error al descargar datos: {mt5.last_error()}")
-            mt5.shutdown()
-            return
-        
-        df = pd.DataFrame(rates)
-        df['time'] = pd.to_datetime(df['time'], unit='s')
-        
-        logger.info(f"✅ {len(df):,} velas descargadas")
-        logger.info(f"📅 Desde: {df['time'].iloc[0]}")
-        logger.info(f"📅 Hasta: {df['time'].iloc[-1]}")
-        
-        # ──────────────────────────────────────────────────────────────
-        # PASO 3: GENERACIÓN DE FEATURES
-        # ──────────────────────────────────────────────────────────────
-        print("\n" + "─"*70)
-        print("  PASO 3: GENERACIÓN DE FEATURES")
-        print("─"*70 + "\n")
-        
-        feature_engineer = FeatureEngineer()
-        
-        logger.info("🔧 Generando features técnicas...")
-        # ✅ CAMBIO CRÍTICO: generar_todas_features en lugar de generar_features
-        df_features = feature_engineer.generar_todas_features(df)
-        
-        if df_features is None or df_features.empty:
-            logger.error("❌ Error generando features")
-            return
-        
-        logger.info(f"✅ Features generadas: {df_features.shape[1]} columnas")
-        logger.info(f"📊 Datos disponibles: {df_features.shape[0]} filas")
-        
-        # Crear target
-        logger.info("🎯 Creando variable target...")
-        HORIZON = 3
-        df_features['target'] = np.where(
-            df_features['close'].shift(-HORIZON) > df_features['close'],
-            2,  # Compra
-            np.where(
-                df_features['close'].shift(-HORIZON) < df_features['close'],
-                0,  # Venta
-                1   # Neutral
-            )
-        )
-        
-        # Eliminar filas con NaN
-        df_features = df_features.dropna()
-        
-        logger.info(f"✅ Target creado")
-        logger.info(f"📊 Distribución del target:")
-        logger.info(f"   Venta (0): {(df_features['target']==0).sum()}")
-        logger.info(f"   Neutral (1): {(df_features['target']==1).sum()}")
-        logger.info(f"   Compra (2): {(df_features['target']==2).sum()}")
-        
-        # ──────────────────────────────────────────────────────────────
-        # PASO 4: ENTRENAMIENTO MODELO HISTÓRICO
-        # ──────────────────────────────────────────────────────────────
-        print("\n" + "─"*70)
-        print("  PASO 4: ENTRENAMIENTO MODELO HISTÓRICO")
-        print("─"*70 + "\n")
-        
-        logger.info("🤖 Entrenando modelo histórico...")
-        logger.info("   (Esto puede tomar 2-5 minutos)")
-        
-        trainer_historico = HistoricalTrainer(
-            n_estimators=300,
-            max_depth=None,
-            min_samples_split=5,
-            random_state=42
-        )
-        
-        # Entrenar modelo
-        modelo_historico = trainer_historico.entrenar(df_features)
-        
-        if modelo_historico is None:
-            logger.error("❌ Error entrenando modelo histórico")
-            return
-        
-        # Guardar modelo
-        trainer_historico.guardar_modelo('models/modelo_historico.pkl')
-        
-        # ──────────────────────────────────────────────────────────────
-        # PASO 5: ENTRENAMIENTO MODELO HÍBRIDO (OPCIONAL)
-        # ──────────────────────────────────────────────────────────────
-        print("\n" + "─"*70)
-        print("  PASO 5: ENTRENAMIENTO MODELO HÍBRIDO")
-        print("─"*70 + "\n")
-        
-        logger.info("🔄 Entrenando modelo híbrido...")
-        
-        # Cargar el modelo histórico recién entrenado
-        # Crear trainer híbrido (sin pasar argumentos en __init__)
-        trainer_hibrido = HybridTrainer()
+        logger.info(f"💰 Balance: ${account_info.balance}")
+    else:
+        logger.error(f"❌ Fallo login: {mt5.last_error()}")
+        return
 
-        # Asignar el modelo histórico manualmente
-        trainer_hibrido.modelo_historico = modelo_historico
+    # -----------------------------------------------------------
+    # PASO 2: DESCARGA DE DATOS
+    # -----------------------------------------------------------
+    print("\n" + "─"*70)
+    print("  PASO 2: DESCARGA DE DATOS HISTÓRICOS")
+    print("─"*70 + "\n")
 
+    data_handler = DataHandler(symbol=SYMBOL, timeframe=TIMEFRAME)
+    # Descargamos suficientes velas
+    df_raw = data_handler.descargar_historico(n_velas=20000)
+    
+    if df_raw is None or df_raw.empty:
+        logger.error("❌ No se descargaron datos.")
+        return
+
+    # -----------------------------------------------------------
+    # PASO 3: FEATURE ENGINEERING
+    # -----------------------------------------------------------
+    print("\n" + "─"*70)
+    print("  PASO 3: GENERACIÓN DE FEATURES")
+    print("─"*70 + "\n")
+
+    fe = FeatureEngineer()
+    df = fe.generar_features(df_raw)
+    
+    # Definir Target (Ejemplo: Próxima vela cierra más arriba = 2, igual = 1, abajo = 0)
+    # Ajusta esta lógica según tu estrategia real en FeatureEngineer
+    if 'target' not in df.columns:
+        logger.info("🎯 Creando variable target simple (Close vs Close previo)...")
+        df['future_close'] = df['close'].shift(-1)
+        df.dropna(inplace=True)
         
-        # Usar últimas 1000 velas como datos de "tiempo real"
-        modelo_hibrido = trainer_hibrido.entrenar(
-            df_historico=df_features,
-            df_tiempo_real=df_features.tail(1000)
-        )
+        def get_target(row):
+            diff = row['future_close'] - row['close']
+            if diff > 0.00010: return 2 # Compra
+            if diff < -0.00010: return 0 # Venta
+            return 1 # Neutral
+            
+        df['target'] = df.apply(get_target, axis=1)
         
-        if modelo_hibrido:
-            trainer_hibrido.guardar_modelo('models/modelo_hibrido.pkl')
-            logger.info("✅ Modelo híbrido entrenado y guardado")
-        else:
-            logger.warning("⚠️ No se pudo entrenar el modelo híbrido")
-        
-        # ──────────────────────────────────────────────────────────────
-        # FINALIZACIÓN
-        # ──────────────────────────────────────────────────────────────
-        mt5.shutdown()
-        
-        fin = datetime.now()
-        duracion = (fin - inicio).total_seconds()
-        
-        print("\n" + "="*70)
-        print("  ✅ ENTRENAMIENTO COMPLETADO")
-        print("="*70)
-        logger.info(f"⏱️  Tiempo total: {duracion:.1f} segundos")
-        logger.info(f"📁 Modelos guardados en: ./models/")
-        logger.info(f"\n🚀 SIGUIENTE PASO:")
-        logger.info(f"   Ejecuta: python main.py")
-        logger.info(f"   Para iniciar el bot en modo producción")
-        
-    except Exception as e:
-        logger.error(f"❌ Error en el proceso: {e}")
-        import traceback
-        traceback.print_exc()
-        mt5.shutdown()
+    TARGET_COL = 'target'
+    # Excluir columnas que no son features (fecha, target, etc)
+    cols_to_exclude = ['time', 'open', 'high', 'low', 'close', 'tick_volume', 'spread', 'real_volume', 'target', 'future_close']
+    feature_cols = [c for c in df.columns if c not in cols_to_exclude]
+    
+    logger.info(f"✅ Features listas: {len(feature_cols)} columnas")
+    logger.info(f"📊 Distribución target: \n{df[TARGET_COL].value_counts().sort_index()}")
+
+    # -----------------------------------------------------------
+    # PASO 4: MODELO HISTÓRICO (Random Forest)
+    # -----------------------------------------------------------
+    print("\n" + "─"*70)
+    print("  PASO 4: ENTRENAMIENTO MODELO HISTÓRICO")
+    print("─"*70 + "\n")
+
+    trainer_historico = HistoricalTrainer(
+        target_col=TARGET_COL,
+        feature_cols=feature_cols
+    )
+    
+    # Entrenar y guardar histórico
+    modelo_historico = trainer_historico.entrenar(df)
+
+    # -----------------------------------------------------------
+    # PASO 5: MODELO HÍBRIDO (LightGBM)
+    # -----------------------------------------------------------
+    print("\n" + "─"*70)
+    print("  PASO 5: ENTRENAMIENTO MODELO HÍBRIDO")
+    print("─"*70 + "\n")
+    
+    # CORRECCIÓN AQUI: Instanciamos SIN pasar el modelo histórico todavía
+    trainer_hibrido = HybridTrainer(
+        target_col=TARGET_COL,
+        feature_cols=feature_cols
+    )
+    
+    # CORRECCIÓN AQUI: Pasamos el modelo histórico y el DF al método entrenar
+    modelo_hibrido = trainer_hibrido.entrenar(
+        df=df,
+        modelo_historico=modelo_historico
+    )
+    
+    print("\n" + "="*70)
+    print("✅✅ ENTRENAMIENTO COMPLETO FINALIZADO CON ÉXITO")
+    print("="*70 + "\n")
+
+    mt5.shutdown()
 
 if __name__ == "__main__":
     main()

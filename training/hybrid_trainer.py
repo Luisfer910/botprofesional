@@ -1,236 +1,104 @@
 import pandas as pd
 import numpy as np
 import lightgbm as lgb
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score
-import pickle
-import json
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report
+import joblib
 import logging
-from datetime import datetime
+import os
 
 class HybridTrainer:
-    def __init__(self, config_path='config/xm_config.json'):
-        with open(config_path, 'r') as f:
-            self.config = json.load(f)
-        
-        self.modelo_historico = None
-        self.modelo_live = None
-        self.modelo_hibrido = None
-        self.scaler = None
-        
-        logging.basicConfig(
-            filename='logs/hybrid_trainer.log',
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s'
-        )
-        self.logger = logging.getLogger(__name__)
-    
-    def cargar_modelo_historico(self, modelo_path, scaler_path):
-        """Carga el modelo entrenado con datos históricos"""
-        try:
-            with open(modelo_path, 'rb') as f:
-                self.modelo_historico = pickle.load(f)
-            
-            with open(scaler_path, 'rb') as f:
-                self.scaler = pickle.load(f)
-            
-            self.logger.info(f"✅ Modelo histórico cargado")
-            print(f"✅ Modelo histórico cargado: {modelo_path}")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error al cargar modelo histórico: {str(e)}")
-            return False
-    
-    def refinar_con_datos_live(self, df_live, feature_cols):
+    def __init__(self, target_col, feature_cols):
         """
-        Refina el modelo histórico con datos observados en vivo
-        (Fine-tuning con datos recientes)
+        Inicializa el entrenador híbrido.
         """
-        self.logger.info("🔧 Refinando modelo con datos live...")
+        self.target_col = target_col
+        self.feature_cols = feature_cols
+        self.model = None
         
-        print(f"\n{'='*60}")
-        print(f"🔧 REFINAMIENTO CON DATOS LIVE")
-        print(f"{'='*60}")
-        
-        if self.modelo_historico is None:
-            print("❌ Error: Modelo histórico no cargado")
-            return None
-        
-        # Preparar datos live
-        X_live = df_live[feature_cols].values
-        y_live = df_live['target'].values
-        
-        print(f"Muestras live: {len(X_live)}")
-        print(f"Features: {len(feature_cols)}")
-        print(f"{'─'*60}\n")
-        
-        # Normalizar con el mismo scaler
-        X_live_scaled = self.scaler.transform(X_live)
-        
-        # Crear dataset de LightGBM
-        live_data = lgb.Dataset(X_live_scaled, label=y_live)
-        
-        # Parámetros para fine-tuning (learning rate más bajo)
-        params = {
-            'objective': 'binary',
-            'metric': 'binary_logloss',
+        # Configuración de LightGBM (Optimizada para clasificación)
+        self.params = {
+            'objective': 'multiclass',
+            'num_class': 3,  # 0: Venta, 1: Neutral, 2: Compra
+            'metric': 'multi_logloss',
             'boosting_type': 'gbdt',
             'num_leaves': 31,
-            'learning_rate': 0.01,  # Más bajo para ajuste fino
+            'learning_rate': 0.05,
             'feature_fraction': 0.9,
-            'bagging_fraction': 0.8,
-            'bagging_freq': 5,
             'verbose': -1,
-            'max_depth': 7,
-            'min_data_in_leaf': 5,  # Más bajo por menos datos
-            'lambda_l1': 0.1,
-            'lambda_l2': 0.1
+            'random_state': 42,
+            'n_jobs': -1
         }
         
-        print("🚀 Refinando modelo con datos live...")
-        print(f"{'─'*60}\n")
-        
-        # Continuar entrenamiento desde el modelo histórico
-        self.modelo_live = lgb.train(
-            params,
-            live_data,
-            num_boost_round=100,  # Menos iteraciones
-            init_model=self.modelo_historico,  # Partir del modelo histórico
-            valid_sets=[live_data],
-            valid_names=['live'],
+        # Crear directorio de modelos si no existe
+        os.makedirs('models', exist_ok=True)
+        self.logger = logging.getLogger(__name__)
+
+    def entrenar(self, df, modelo_historico):
+        """
+        Entrena el modelo híbrido (LightGBM) usando las predicciones del modelo histórico como input extra.
+        """
+        self.logger.info("🚀 Iniciando entrenamiento del Modelo Híbrido...")
+
+        # 1. Generar predicciones del modelo histórico (Random Forest)
+        # Usamos predict_proba para dar más información al LightGBM (confianza del RF)
+        try:
+            # Aseguramos que solo usamos las columnas con las que se entrenó el histórico
+            features_historicas = df[self.feature_cols]
+            
+            # Obtenemos probabilidades: [Prob_Venta, Prob_Neutral, Prob_Compra]
+            probs_historicas = modelo_historico.predict_proba(features_historicas)
+            
+            # Añadimos estas probabilidades como NUEVAS features para el LightGBM
+            df_hibrido = df.copy()
+            df_hibrido['rf_prob_sell'] = probs_historicas[:, 0]
+            df_hibrido['rf_prob_neutral'] = probs_historicas[:, 1]
+            df_hibrido['rf_prob_buy'] = probs_historicas[:, 2]
+            
+            # Actualizamos la lista de features para incluir las nuevas
+            features_hibridas = self.feature_cols + ['rf_prob_sell', 'rf_prob_neutral', 'rf_prob_buy']
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error generando inputs del modelo histórico: {e}")
+            raise e
+
+        # 2. Preparar datos para LightGBM
+        X = df_hibrido[features_hibridas]
+        y = df_hibrido[self.target_col]
+
+        # Split temporal (respetando el orden del tiempo)
+        split_idx = int(len(df) * 0.8)
+        X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
+        y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
+
+        # Crear Datasets de LightGBM
+        train_data = lgb.Dataset(X_train, label=y_train)
+        test_data = lgb.Dataset(X_test, label=y_test, reference=train_data)
+
+        # 3. Entrenar LightGBM
+        self.logger.info("🔄 Entrenando LightGBM...")
+        self.model = lgb.train(
+            self.params,
+            train_data,
+            num_boost_round=1000,
+            valid_sets=[train_data, test_data],
             callbacks=[
-                lgb.log_evaluation(period=20)
+                lgb.early_stopping(stopping_rounds=50),
+                lgb.log_evaluation(period=100)
             ]
         )
+
+        # 4. Evaluar
+        y_pred_prob = self.model.predict(X_test, num_iteration=self.model.best_iteration)
+        y_pred = [np.argmax(line) for line in y_pred_prob]
+
+        acc = accuracy_score(y_test, y_pred)
+        self.logger.info(f"✅ Modelo Híbrido Entrenado. Accuracy Test: {acc:.4f}")
+        self.logger.info("\n" + classification_report(y_test, y_pred))
+
+        # 5. Guardar
+        path = 'models/modelo_hibrido.txt' # LightGBM se guarda mejor como txt o json
+        self.model.save_model(path)
+        self.logger.info(f"💾 Modelo guardado en {path}")
         
-        print(f"\n{'─'*60}")
-        print("✅ Refinamiento completado")
-        print(f"{'─'*60}\n")
-        
-        # Evaluar mejora
-        y_pred_historico = (self.modelo_historico.predict(X_live_scaled) > 0.5).astype(int)
-        y_pred_live = (self.modelo_live.predict(X_live_scaled) > 0.5).astype(int)
-        
-        acc_historico = accuracy_score(y_live, y_pred_historico)
-        acc_live = accuracy_score(y_live, y_pred_live)
-        
-        print(f"📊 COMPARACIÓN DE MODELOS:")
-        print(f"{'─'*60}")
-        print(f"   Modelo Histórico: {acc_historico*100:.2f}%")
-        print(f"   Modelo Refinado:  {acc_live*100:.2f}%")
-        print(f"   Mejora:           {(acc_live-acc_historico)*100:+.2f}%")
-        print(f"{'─'*60}\n")
-        
-        self.logger.info(f"✅ Modelo refinado - Accuracy: {acc_live*100:.2f}%")
-        
-        return self.modelo_live
-    
-    def crear_modelo_hibrido(self, peso_historico=0.6, peso_live=0.4):
-        """
-        Crea un modelo híbrido que combina predicciones
-        del modelo histórico y el modelo live
-        """
-        self.logger.info("🔀 Creando modelo híbrido...")
-        
-        print(f"\n{'='*60}")
-        print(f"🔀 CREACIÓN DE MODELO HÍBRIDO")
-        print(f"{'='*60}")
-        print(f"Peso Histórico: {peso_historico*100:.0f}%")
-        print(f"Peso Live:      {peso_live*100:.0f}%")
-        print(f"{'='*60}\n")
-        
-        if self.modelo_historico is None or self.modelo_live is None:
-            print("❌ Error: Faltan modelos para crear híbrido")
-            return None
-        
-        # Guardar pesos
-        self.peso_historico = peso_historico
-        self.peso_live = peso_live
-        
-        # El modelo híbrido es una combinación de ambos
-        self.modelo_hibrido = {
-            'historico': self.modelo_historico,
-            'live': self.modelo_live,
-            'peso_historico': peso_historico,
-            'peso_live': peso_live,
-            'scaler': self.scaler
-        }
-        
-        print("✅ Modelo híbrido creado exitosamente\n")
-        
-        self.logger.info("✅ Modelo híbrido creado")
-        
-        return self.modelo_hibrido
-    
-    def predecir_hibrido(self, X):
-        """Realiza predicción con el modelo híbrido"""
-        if self.modelo_hibrido is None:
-            self.logger.error("❌ Modelo híbrido no creado")
-            return None, None
-        
-        try:
-            # Normalizar
-            X_scaled = self.scaler.transform(X)
-            
-            # Predicciones de cada modelo
-            prob_historico = self.modelo_historico.predict(X_scaled)
-            prob_live = self.modelo_live.predict(X_scaled)
-            
-            # Combinar predicciones con pesos
-            prob_hibrido = (
-                self.peso_historico * prob_historico + 
-                self.peso_live * prob_live
-            )
-            
-            # Convertir a clase
-            pred_hibrido = (prob_hibrido > 0.5).astype(int)
-            
-            return pred_hibrido, prob_hibrido
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error al predecir: {str(e)}")
-            return None, None
-    
-    def guardar_modelo_hibrido(self, nombre='hybrid_model'):
-        """Guarda el modelo híbrido"""
-        try:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            
-            # Guardar modelo completo
-            modelo_path = f'models/{nombre}_{timestamp}.pkl'
-            with open(modelo_path, 'wb') as f:
-                pickle.dump(self.modelo_hibrido, f)
-            
-            print(f"💾 MODELO HÍBRIDO GUARDADO:")
-            print(f"{'─'*60}")
-            print(f"   {modelo_path}")
-            print(f"{'='*60}\n")
-            
-            self.logger.info(f"✅ Modelo híbrido guardado: {modelo_path}")
-            
-            return modelo_path
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error al guardar modelo híbrido: {str(e)}")
-            return None
-    
-    def cargar_modelo_hibrido(self, modelo_path):
-        """Carga un modelo híbrido"""
-        try:
-            with open(modelo_path, 'rb') as f:
-                self.modelo_hibrido = pickle.load(f)
-            
-            self.modelo_historico = self.modelo_hibrido['historico']
-            self.modelo_live = self.modelo_hibrido['live']
-            self.peso_historico = self.modelo_hibrido['peso_historico']
-            self.peso_live = self.modelo_hibrido['peso_live']
-            self.scaler = self.modelo_hibrido['scaler']
-            
-            self.logger.info(f"✅ Modelo híbrido cargado: {modelo_path}")
-            print(f"✅ Modelo híbrido cargado: {modelo_path}")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error al cargar modelo híbrido: {str(e)}")
-            return False
+        return self.model
