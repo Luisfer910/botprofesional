@@ -245,3 +245,181 @@ class HistoricalTrainer:
         except Exception as e:
             logger.error(f"Error cargando modelo: {e}")
             return None
+# =============================================================================
+#  HISTORICAL TRAINER - Entrenamiento con filtro numérico no destructivo
+# =============================================================================
+#  Propósito:
+#    - Entrenar modelos con datos históricos evitando errores de dtype.
+#    - NO elimina columnas del DataFrame original; filtra numéricas SOLO para el modelo.
+#    - Devuelve el modelo entrenado y las probabilidades de test para métricas externas.
+#
+#  Uso esperado:
+#    - Importado por entrenar_completo.py u otros módulos del proyecto.
+#
+#  Cambios clave:
+#    - Filtro de columnas numéricas antes de .fit() y .predict()/predict_proba().
+#    - Manejo de errores y logs informativos.
+#
+#  Compatibilidad:
+#    - sklearn (RandomForest, etc.)
+#    - lightgbm (si estuviera en uso)
+# =============================================================================
+
+from typing import Tuple, Optional, Callable
+import numpy as np
+import pandas as pd
+
+# Métricas pueden calcularse fuera (en el script principal)
+# Se deja import opcional aquí si es necesario:
+try:
+    from sklearn.metrics import roc_auc_score
+    _HAS_SKLEARN = True
+except Exception:
+    _HAS_SKLEARN = False
+
+def _default_log(msg: str):
+    """Logger por defecto si no se provee log_fn."""
+    print(msg)
+
+def _validate_inputs(X_train: pd.DataFrame, y_train: pd.Series,
+                     X_test: pd.DataFrame, y_test: pd.Series):
+    if X_train is None or X_test is None or y_train is None or y_test is None:
+        raise ValueError("Entradas de entrenamiento/prueba no pueden ser None.")
+    if len(X_train) == 0 or len(X_test) == 0:
+        raise ValueError("X_train o X_test están vacíos.")
+    if len(y_train) == 0 or len(y_test) == 0:
+        raise ValueError("y_train o y_test están vacíos.")
+    if len(X_train) != len(y_train):
+        raise ValueError(f"Longitud inconsistente: X_train={len(X_train)} vs y_train={len(y_train)}")
+    if len(X_test) != len(y_test):
+        raise ValueError(f"Longitud inconsistente: X_test={len(X_test)} vs y_test={len(y_test)}")
+
+def _numeric_view(df: pd.DataFrame, log_fn: Callable = _default_log) -> pd.DataFrame:
+    """
+    Retorna una vista SOLO con columnas numéricas sin modificar df original.
+    Loguea columnas excluidas para trazabilidad.
+    """
+    cols_original = list(df.columns)
+    df_num = df.select_dtypes(include=['number']).copy()
+
+    excluidas = [c for c in cols_original if c not in df_num.columns]
+    if excluidas:
+        log_fn(f"ℹ️ Columnas no numéricas excluidas del entrenamiento: {excluidas}")
+
+    if df_num.empty:
+        raise ValueError("No hay columnas numéricas disponibles para el modelo.")
+
+    # Log de primeras columnas para visibilidad
+    preview_cols = list(df_num.columns)[:10]
+    suffix = "..." if len(df_num.columns) > 10 else ""
+    log_fn(f"✅ Columnas usadas para el modelo ({len(df_num.columns)}): {preview_cols}{suffix}")
+
+    # Asegurar tipos float64/int64 uniformes (evitar object/bool residuales)
+    for c in df_num.columns:
+        if pd.api.types.is_bool_dtype(df_num[c]):
+            df_num[c] = df_num[c].astype(np.int64)
+        elif pd.api.types.is_integer_dtype(df_num[c]):
+            df_num[c] = df_num[c].astype(np.int64)
+        elif pd.api.types.is_float_dtype(df_num[c]):
+            df_num[c] = df_num[c].astype(np.float64)
+        # otros tipos numéricos se mantienen
+
+    return df_num
+
+def entrenar_modelo(
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    X_test: pd.DataFrame,
+    y_test: pd.Series,
+    modelo,
+    *,
+    log_fn: Callable = _default_log
+) -> Tuple[object, np.ndarray]:
+    """
+    Entrena el modelo con datos históricos filtrando columnas no numéricas SOLO para el modelo.
+    
+    Parámetros:
+      - X_train, y_train, X_test, y_test: conjuntos ya preparados y alineados
+      - modelo: instancia del modelo (RandomForest, LGBM, etc.)
+      - log_fn: función de logging (por defecto print)
+    
+    Retorna:
+      - modelo entrenado
+      - y_pred_proba (np.ndarray): probabilidades del conjunto de test para métricas externas
+    """
+    # Validaciones básicas
+    _validate_inputs(X_train, y_train, X_test, y_test)
+
+    log_fn("🔧 Preparando datos para entrenamiento (solo columnas numéricas)...")
+    X_train_model = _numeric_view(X_train, log_fn=log_fn)
+    X_test_model  = _numeric_view(X_test, log_fn=log_fn)
+
+    # Entrenamiento
+    log_fn("🤖 Entrenando modelo con datos históricos...")
+    try:
+        modelo.fit(X_train_model, y_train)
+    except Exception as e:
+        log_fn(f"❌ Error al entrenar el modelo: {e}")
+        raise
+
+    # Predicción de probabilidades
+    log_fn("📈 Generando predicciones en test...")
+    y_pred_proba: Optional[np.ndarray] = None
+    try:
+        if hasattr(modelo, "predict_proba"):
+            proba = modelo.predict_proba(X_test_model)
+            # Modelos binarios: usar la columna de proba de clase 1
+            if isinstance(proba, np.ndarray):
+                if proba.ndim == 2 and proba.shape[1] >= 2:
+                    y_pred_proba = proba[:, 1]
+                elif proba.ndim == 1:
+                    y_pred_proba = proba
+                else:
+                    # fallback: si devuelve form raro
+                    y_pred_proba = proba.squeeze()
+            else:
+                # si no es ndarray, intenta convertir
+                y_pred_proba = np.array(proba)
+        else:
+            # Si no hay predict_proba, usa predicción binaria como proxy 0/1
+            y_pred = modelo.predict(X_test_model)
+            y_pred_proba = np.array(y_pred, dtype=float)
+            log_fn("ℹ️ Modelo sin predict_proba: usando predicción binaria como probabilidad proxy.")
+    except Exception as e:
+        log_fn(f"❌ Error al predecir: {e}")
+        raise
+
+    # Log opcional de AUC si sklearn está disponible y el target es binario
+    if _HAS_SKLEARN:
+        try:
+            auc = roc_auc_score(y_test, y_pred_proba)
+            log_fn(f"📊 ROC-AUC (interno): {auc:.4f}")
+        except Exception as e:
+            log_fn(f"ℹ️ No se pudo calcular AUC interno: {e}")
+
+    log_fn("✅ Entrenamiento y predicción completados.")
+    return modelo, y_pred_proba
+
+# =============================================================================
+#  Funciones auxiliares opcionales para preparar splits (si se desea usar aquí)
+# =============================================================================
+
+def preparar_split(X: pd.DataFrame, y: pd.Series, train_frac: float = 0.85):
+    """
+    Prepara un split temporal simple (sin shuffle) respetando orden temporal.
+    Retorna X_train, y_train, X_test, y_test.
+    """
+    if not 0.0 < train_frac < 1.0:
+        raise ValueError("train_frac debe estar entre 0 y 1.")
+
+    n = len(X)
+    if n != len(y):
+        raise ValueError("X e y deben tener la misma longitud.")
+
+    split_idx = int(n * train_frac)
+    X_train = X.iloc[:split_idx].copy()
+    y_train = y.iloc[:split_idx].copy()
+    X_test  = X.iloc[split_idx:].copy()
+    y_test  = y.iloc[split_idx:].copy()
+
+    return X_train, y_train, X_test, y_test
