@@ -1,46 +1,41 @@
 """
 Data Manager - Gestión de datos históricos y en tiempo real
-Versión: 2.1 - FIX resample live data
+Versión: 3.0 - Con análisis tick-by-tick real
 """
 
 import MetaTrader5 as mt5
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+import time
 import json
 import logging
-import time
 
 class DataManager:
-    """
-    Gestiona la obtención y procesamiento de datos desde MT5
-    """
-
     def __init__(self, mt5_connector, config_path='config/xm_config.json'):
-        """
-        Inicializa el Data Manager
-
-        Args:
-            mt5_connector: Instancia de MT5Connector
-            config_path: Ruta al archivo de configuración
-        """
-        # Cargar configuración
         with open(config_path, 'r') as f:
             self.config = json.load(f)
-
+        
         self.mt5 = mt5_connector
-        self.trading_config = self.config['TRADING']
-
-        # Configurar logging
+        self.symbol = self.config['TRADING']['SYMBOL']
+        self.timeframe_str = self.config['TRADING']['TIMEFRAME']
+        self.timeframe = self._get_timeframe()
+        
+        # Buffer de ticks para análisis intravela
+        self.tick_buffer = []
+        self.current_candle_time = None
+        self.tick_data_by_candle = {}  # {candle_time: [ticks]}
+        
         logging.basicConfig(
             filename='logs/data_manager.log',
             level=logging.INFO,
             format='%(asctime)s - %(levelname)s - %(message)s'
         )
         self.logger = logging.getLogger(__name__)
-
-        # Mapeo de timeframes
-        self.timeframe_map = {
+    
+    def _get_timeframe(self):
+        """Convierte string de timeframe a constante MT5"""
+        timeframes = {
             'M1': mt5.TIMEFRAME_M1,
             'M5': mt5.TIMEFRAME_M5,
             'M15': mt5.TIMEFRAME_M15,
@@ -49,316 +44,363 @@ class DataManager:
             'H4': mt5.TIMEFRAME_H4,
             'D1': mt5.TIMEFRAME_D1
         }
-
-        # Cache de datos
-        self.ultimo_df = None
-        self.ultima_actualizacion = None
-
-    def cargar_datos_historicos(self, cantidad=20000):
+        return timeframes.get(self.timeframe_str, mt5.TIMEFRAME_M5)
+    
+    def obtener_datos_historicos(self, cantidad=20000):
         """
-        Carga datos históricos desde MT5
-
+        Obtiene datos históricos de velas
+        
         Args:
-            cantidad: Número de velas a descargar
-
+            cantidad: Número de velas a obtener
+            
         Returns:
             DataFrame con datos históricos
         """
-        symbol = self.trading_config['SYMBOL']
-        timeframe_str = self.trading_config['TIMEFRAME']
-        timeframe = self.timeframe_map.get(timeframe_str, mt5.TIMEFRAME_M5)
-
-        self.logger.info(f"Descargando {cantidad} velas de {symbol} {timeframe_str}")
-
         try:
-            # Descargar datos
-            rates = mt5.copy_rates_from_pos(symbol, timeframe, 0, cantidad)
-
+            self.logger.info(f"📥 Obteniendo {cantidad} velas históricas...")
+            
+            rates = mt5.copy_rates_from_pos(
+                self.symbol,
+                self.timeframe,
+                0,
+                cantidad
+            )
+            
             if rates is None or len(rates) == 0:
-                error = mt5.last_error()
-                self.logger.error(f"Error al descargar datos: {error}")
-                print(f"   ❌ Error MT5: {error}")
+                self.logger.error("❌ No se pudieron obtener datos históricos")
                 return None
-
+            
             # Convertir a DataFrame
             df = pd.DataFrame(rates)
-
-            # Convertir timestamp a datetime
             df['time'] = pd.to_datetime(df['time'], unit='s')
-
-            # Renombrar columnas para consistencia
-            df = df.rename(columns={
-                'tick_volume': 'volume'
-            })
-
-            # Ordenar por tiempo
-            df = df.sort_values('time').reset_index(drop=True)
-
-            self.logger.info(f"Datos históricos cargados: {len(df)} velas")
-            print(f"   ✅ Descargadas {len(df)} velas")
-            print(f"   📅 Desde: {df['time'].iloc[0]}")
-            print(f"   📅 Hasta: {df['time'].iloc[-1]}")
-
-            # Guardar en cache
-            self.ultimo_df = df.copy()
-            self.ultima_actualizacion = datetime.now()
-
+            
+            self.logger.info(f"✅ {len(df)} velas históricas obtenidas")
+            self.logger.info(f"   Desde: {df['time'].iloc[0]}")
+            self.logger.info(f"   Hasta: {df['time'].iloc[-1]}")
+            
             return df
-
+            
         except Exception as e:
-            self.logger.error(f"Excepción al cargar datos: {str(e)}")
-            print(f"   ❌ Error: {str(e)}")
+            self.logger.error(f"❌ Error al obtener datos históricos: {str(e)}")
             return None
-
-    def actualizar_datos_live(self, cantidad=500):
+    
+    def capturar_ticks_tiempo_real(self, duracion_segundos=300):
         """
-        Actualiza datos con las últimas velas
-
+        Captura ticks en tiempo real durante la formación de una vela M5
+        
         Args:
-            cantidad: Número de velas recientes a obtener
-
+            duracion_segundos: Duración de captura (300s = 5min para M5)
+            
         Returns:
-            DataFrame actualizado
+            DataFrame con ticks capturados
         """
-        return self.cargar_datos_historicos(cantidad=cantidad)
-
-    def observar_mercado_live(self, duracion_minutos=60, intervalo_segundos=1):
-        """
-        Observa el mercado en tiempo real tick-by-tick
-
-        Args:
-            duracion_minutos: Duración de la observación en minutos
-            intervalo_segundos: Intervalo entre capturas
-
-        Returns:
-            DataFrame con observaciones tick-by-tick
-        """
-        symbol = self.trading_config['SYMBOL']
-
-        print(f"\n👁️  Observando mercado en vivo por {duracion_minutos} minutos...")
-        print(f"   Capturando ticks cada {intervalo_segundos} segundo(s)")
-        print(f"   Presiona Ctrl+C para detener antes\n")
-
-        observaciones = []
-        inicio = datetime.now()
-        fin = inicio + timedelta(minutes=duracion_minutos)
-        contador = 0
-
         try:
+            self.logger.info(f"🎯 Iniciando captura de ticks por {duracion_segundos}s...")
+            
+            inicio = datetime.now()
+            fin = inicio + timedelta(seconds=duracion_segundos)
+            
+            ticks_capturados = []
+            ultimo_tick_time = None
+            
+            print(f"\n{'─'*60}")
+            print(f"🎯 CAPTURA DE TICKS EN TIEMPO REAL")
+            print(f"{'─'*60}")
+            print(f"   Duración: {duracion_segundos}s ({duracion_segundos/60:.1f} min)")
+            print(f"   Inicio: {inicio.strftime('%H:%M:%S')}")
+            print(f"   Fin estimado: {fin.strftime('%H:%M:%S')}")
+            print(f"{'─'*60}\n")
+            
+            contador = 0
+            
             while datetime.now() < fin:
                 # Obtener tick actual
-                tick = mt5.symbol_info_tick(symbol)
-
-                if tick:
-                    obs = {
-                        'time': datetime.fromtimestamp(tick.time),
+                tick = mt5.symbol_info_tick(self.symbol)
+                
+                if tick is not None:
+                    tick_time = datetime.fromtimestamp(tick.time)
+                    
+                    # Evitar duplicados
+                    if ultimo_tick_time is None or tick_time > ultimo_tick_time:
+                        tick_data = {
+                            'time': tick_time,
+                            'bid': tick.bid,
+                            'ask': tick.ask,
+                            'last': tick.last,
+                            'volume': tick.volume,
+                            'spread': (tick.ask - tick.bid) / tick.bid * 10000  # En pips
+                        }
+                        
+                        ticks_capturados.append(tick_data)
+                        ultimo_tick_time = tick_time
+                        contador += 1
+                        
+                        # Mostrar progreso cada 50 ticks
+                        if contador % 50 == 0:
+                            transcurrido = (datetime.now() - inicio).total_seconds()
+                            restante = duracion_segundos - transcurrido
+                            print(f"   📊 Ticks: {contador} | Tiempo: {transcurrido:.0f}s / {duracion_segundos}s | Restante: {restante:.0f}s")
+                
+                # Pequeña pausa para no saturar
+                time.sleep(0.1)
+            
+            print(f"\n{'─'*60}")
+            print(f"✅ CAPTURA COMPLETADA")
+            print(f"{'─'*60}")
+            print(f"   Total ticks: {len(ticks_capturados)}")
+            print(f"   Duración real: {(datetime.now() - inicio).total_seconds():.1f}s")
+            print(f"{'─'*60}\n")
+            
+            if len(ticks_capturados) == 0:
+                self.logger.warning("⚠️ No se capturaron ticks")
+                return None
+            
+            df_ticks = pd.DataFrame(ticks_capturados)
+            
+            self.logger.info(f"✅ {len(df_ticks)} ticks capturados")
+            
+            return df_ticks
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error al capturar ticks: {str(e)}")
+            return None
+    
+    def obtener_ticks_vela_actual(self):
+        """
+        Obtiene los ticks de la vela M5 que se está formando actualmente
+        
+        Returns:
+            DataFrame con ticks de la vela actual
+        """
+        try:
+            # Obtener tiempo de la vela actual
+            rates = mt5.copy_rates_from_pos(self.symbol, self.timeframe, 0, 1)
+            
+            if rates is None or len(rates) == 0:
+                return None
+            
+            candle_time = pd.to_datetime(rates[0]['time'], unit='s')
+            
+            # Si es una nueva vela, limpiar buffer
+            if self.current_candle_time is None or candle_time > self.current_candle_time:
+                self.current_candle_time = candle_time
+                self.tick_buffer = []
+                self.logger.info(f"🕐 Nueva vela M5 iniciada: {candle_time}")
+            
+            # Capturar tick actual
+            tick = mt5.symbol_info_tick(self.symbol)
+            
+            if tick is not None:
+                tick_time = datetime.fromtimestamp(tick.time)
+                
+                # Solo agregar si es de la vela actual
+                if tick_time >= candle_time:
+                    tick_data = {
+                        'time': tick_time,
                         'bid': tick.bid,
                         'ask': tick.ask,
                         'last': tick.last,
                         'volume': tick.volume,
-                        'spread': tick.ask - tick.bid
+                        'spread': (tick.ask - tick.bid) / tick.bid * 10000,
+                        'candle_time': candle_time
                     }
-                    observaciones.append(obs)
-                    contador += 1
-
-                    # Mostrar progreso cada 60 ticks
-                    if contador % 60 == 0:
-                        tiempo_transcurrido = (datetime.now() - inicio).total_seconds() / 60
-                        print(f"   📊 {contador} ticks capturados ({tiempo_transcurrido:.1f} min)")
-
-                # Esperar intervalo
-                time.sleep(intervalo_segundos)
-
-        except KeyboardInterrupt:
-            print("\n   ⚠️  Observación interrumpida por el usuario")
-
-        if not observaciones:
-            self.logger.warning("No se capturaron observaciones")
-            return None
-
-        # Convertir a DataFrame
-        df_live = pd.DataFrame(observaciones)
-
-        print(f"\n   ✅ Observación completada")
-        print(f"   📊 Total ticks capturados: {len(df_live)}")
-        print(f"   ⏱️  Duración real: {(datetime.now() - inicio).total_seconds() / 60:.1f} minutos")
-
-        self.logger.info(f"Observación live completada: {len(df_live)} ticks")
-
-        return df_live
-
-    def agregar_datos_live_a_velas(self, df_velas, df_live):
-        """
-        Agrega datos de observación live a las velas históricas
-
-        Args:
-            df_velas: DataFrame con velas históricas
-            df_live: DataFrame con observaciones tick-by-tick
-
-        Returns:
-            DataFrame combinado
-        """
-        if df_live is None or len(df_live) == 0:
-            return df_velas
-
-        # Agrupar ticks en velas
-        timeframe_str = self.trading_config['TIMEFRAME']
-
-        # Mapeo de timeframe a minutos
-        timeframe_minutos = {
-            'M1': '1T',
-            'M5': '5T',
-            'M15': '15T',
-            'M30': '30T',
-            'H1': '60T',
-            'H4': '240T',
-            'D1': '1D'
-        }
-
-        freq = timeframe_minutos.get(timeframe_str, '5T')
-
-        # Establecer índice de tiempo
-        df_live_copy = df_live.copy()
-        df_live_copy.set_index('time', inplace=True)
-
-        # Resamplear correctamente usando 'last' para OHLC
-        velas_live = df_live_copy.resample(freq).agg({
-            'last': ['first', 'max', 'min', 'last'],
-            'volume': 'sum'
-        })
-
-        # Aplanar columnas multi-nivel
-        velas_live.columns = ['open', 'high', 'low', 'close', 'volume']
-
-        # Reset index (mantiene 'time' como nombre de columna)
-        velas_live = velas_live.reset_index()
-
-        # Eliminar NaN
-        velas_live = velas_live.dropna()
-
-        # Agregar columnas faltantes
-        velas_live['tick_volume'] = velas_live['volume']
-        velas_live['spread'] = 0
-        velas_live['real_volume'] = 0
-
-        # Verificar que estén todas las columnas necesarias
-        columnas_requeridas = ['time', 'open', 'high', 'low', 'close', 'volume']
-        for col in columnas_requeridas:
-            if col not in velas_live.columns:
-                raise ValueError(f"❌ Falta la columna '{col}' en velas_live. Revisa el resample.")
-
-        # Combinar con datos históricos
-        df_combinado = pd.concat([df_velas, velas_live], ignore_index=True)
-        df_combinado = df_combinado.drop_duplicates(subset=['time'], keep='last')
-        df_combinado = df_combinado.sort_values('time').reset_index(drop=True)
-
-        print(f"\n   ✅ Datos live agregados")
-        print(f"   📊 Velas adicionales: {len(velas_live)}")
-        print(f"   📊 Total velas: {len(df_combinado)}")
-
-        return df_combinado
-
-    # (Las demás funciones del archivo base siguen igual: obtener_vela_actual_en_formacion, verificar_calidad_datos, guardar_datos, cargar_datos_guardados...)
-
-    def obtener_vela_actual_en_formacion(self):
-        symbol = self.trading_config['SYMBOL']
-        timeframe_str = self.trading_config['TIMEFRAME']
-        timeframe = self.timeframe_map.get(timeframe_str, mt5.TIMEFRAME_M5)
-
-        rates = mt5.copy_rates_from_pos(symbol, timeframe, 0, 2)
-        if rates is None or len(rates) < 2:
-            return None
-
-        ultima_vela = rates[-1]
-        tick_actual = mt5.symbol_info_tick(symbol)
-        if not tick_actual:
-            return None
-
-        vela_formacion = {
-            'time_inicio': datetime.fromtimestamp(ultima_vela['time']),
-            'open': ultima_vela['open'],
-            'high': max(ultima_vela['high'], tick_actual.bid),
-            'low': min(ultima_vela['low'], tick_actual.bid),
-            'close': tick_actual.bid,
-            'bid': tick_actual.bid,
-            'ask': tick_actual.ask,
-            'spread': tick_actual.ask - tick_actual.bid,
-            'volumen_acumulado': ultima_vela['tick_volume']
-        }
-
-        timeframe_segundos = {
-            'M1': 60,
-            'M5': 300,
-            'M15': 900,
-            'M30': 1800,
-            'H1': 3600,
-            'H4': 14400,
-            'D1': 86400
-        }
-
-        segundos_tf = timeframe_segundos.get(timeframe_str, 300)
-        tiempo_transcurrido = (datetime.now() - vela_formacion['time_inicio']).total_seconds()
-        progreso = min(tiempo_transcurrido / segundos_tf * 100, 100)
-
-        vela_formacion['progreso_porcentaje'] = progreso
-        vela_formacion['segundos_restantes'] = max(0, segundos_tf - tiempo_transcurrido)
-
-        return vela_formacion
-
-    def verificar_calidad_datos(self, df):
-        if df is None or len(df) == 0:
-            return {'valido': False, 'razon': 'DataFrame vacío'}
-
-        columnas_requeridas = ['time', 'open', 'high', 'low', 'close', 'volume']
-        columnas_faltantes = [col for col in columnas_requeridas if col not in df.columns]
-
-        if columnas_faltantes:
-            return {
-                'valido': False,
-                'razon': f'Columnas faltantes: {columnas_faltantes}'
-            }
-
-        nulos = df[columnas_requeridas].isnull().sum().sum()
-        porcentaje_nulos = (nulos / (len(df) * len(columnas_requeridas))) * 100
-        negativos = (df[['open', 'high', 'low', 'close']] < 0).sum().sum()
-        inconsistencias = (
-            (df['high'] < df['low']) |
-            (df['high'] < df['open']) |
-            (df['high'] < df['close']) |
-            (df['low'] > df['open']) |
-            (df['low'] > df['close'])
-        ).sum()
-
-        calidad = {
-            'valido': True,
-            'total_registros': len(df),
-            'valores_nulos': int(nulos),
-            'porcentaje_nulos': round(porcentaje_nulos, 2),
-            'valores_negativos': int(negativos),
-            'inconsistencias_ohlc': int(inconsistencias),
-            'fecha_inicio': df['time'].iloc[0],
-            'fecha_fin': df['time'].iloc[-1]
-        }
-
-        if porcentaje_nulos > 5 or negativos > 0 or inconsistencias > len(df) * 0.01:
-            calidad['valido'] = False
-            calidad['razon'] = 'Calidad de datos insuficiente'
-
-        return calidad
-
-    def guardar_datos(self, df, nombre='datos_historicos'):
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f'data/{nombre}_{timestamp}.csv'
-        df.to_csv(filename, index=False)
-        self.logger.info(f"Datos guardados: {filename}")
-        print(f"   💾 Datos guardados: {filename}")
-
-    def cargar_datos_guardados(self, filename):
-        try:
-            df = pd.read_csv(filename)
-            df['time'] = pd.to_datetime(df['time'])
-            self.logger.info(f"Datos cargados: {filename}")
-            return df
+                    
+                    self.tick_buffer.append(tick_data)
+            
+            # Retornar DataFrame con ticks de la vela actual
+            if len(self.tick_buffer) > 0:
+                return pd.DataFrame(self.tick_buffer)
+            else:
+                return None
+                
         except Exception as e:
-            self.logger.error(f"Error al cargar datos: {str(e)}")
+            self.logger.error(f"❌ Error al obtener ticks de vela actual: {str(e)}")
             return None
+    
+    def analizar_ticks_intravela(self, df_ticks):
+        """
+        Analiza los ticks dentro de una vela y genera features intravela
+        
+        Args:
+            df_ticks: DataFrame con ticks de la vela
+            
+        Returns:
+            dict con features intravela
+        """
+        if df_ticks is None or len(df_ticks) < 5:
+            return None
+        
+        try:
+            features = {}
+            
+            # Precio
+            precio_inicio = df_ticks['bid'].iloc[0]
+            precio_fin = df_ticks['bid'].iloc[-1]
+            precio_max = df_ticks['bid'].max()
+            precio_min = df_ticks['bid'].min()
+            
+            # Movimiento
+            features['precio_cambio'] = precio_fin - precio_inicio
+            features['precio_cambio_pct'] = (precio_fin - precio_inicio) / precio_inicio * 100
+            features['rango_intravela'] = precio_max - precio_min
+            
+            # Posición final del precio
+            if precio_max != precio_min:
+                features['posicion_precio'] = (precio_fin - precio_min) / (precio_max - precio_min)
+            else:
+                features['posicion_precio'] = 0.5
+            
+            # Volatilidad intravela
+            features['volatilidad_intravela'] = df_ticks['bid'].std()
+            features['volatilidad_normalizada'] = features['volatilidad_intravela'] / precio_inicio * 10000  # En pips
+            
+            # Presión compradora/vendedora
+            cambios = df_ticks['bid'].diff()
+            cambios_positivos = cambios[cambios > 0].count()
+            cambios_negativos = cambios[cambios < 0].count()
+            total_cambios = cambios_positivos + cambios_negativos
+            
+            if total_cambios > 0:
+                features['presion_compradora'] = cambios_positivos / total_cambios
+                features['presion_vendedora'] = cambios_negativos / total_cambios
+                features['presion_neta'] = features['presion_compradora'] - features['presion_vendedora']
+            else:
+                features['presion_compradora'] = 0.5
+                features['presion_vendedora'] = 0.5
+                features['presion_neta'] = 0.0
+            
+            # Velocidad de cambio
+            if len(df_ticks) > 1:
+                tiempo_total = (df_ticks['time'].iloc[-1] - df_ticks['time'].iloc[0]).total_seconds()
+                if tiempo_total > 0:
+                    features['velocidad'] = abs(precio_fin - precio_inicio) / tiempo_total
+                else:
+                    features['velocidad'] = 0.0
+            else:
+                features['velocidad'] = 0.0
+            
+            # Momentum intravela
+            if len(df_ticks) >= 10:
+                mitad = len(df_ticks) // 2
+                precio_mitad = df_ticks['bid'].iloc[mitad]
+                features['momentum_primera_mitad'] = precio_mitad - precio_inicio
+                features['momentum_segunda_mitad'] = precio_fin - precio_mitad
+            else:
+                features['momentum_primera_mitad'] = 0.0
+                features['momentum_segunda_mitad'] = 0.0
+            
+            # Spread
+            features['spread_promedio'] = df_ticks['spread'].mean()
+            features['spread_max'] = df_ticks['spread'].max()
+            features['spread_min'] = df_ticks['spread'].min()
+            
+            # Cambios de dirección
+            cambios_direccion = 0
+            for i in range(1, len(cambios)):
+                if cambios.iloc[i-1] * cambios.iloc[i] < 0:  # Cambio de signo
+                    cambios_direccion += 1
+            features['cambios_direccion'] = cambios_direccion
+            
+            # Número de ticks
+            features['num_ticks'] = len(df_ticks)
+            
+            # Aceleración
+            if len(df_ticks) >= 3:
+                velocidades = cambios.abs()
+                aceleraciones = velocidades.diff()
+                features['aceleracion'] = aceleraciones.mean()
+            else:
+                features['aceleracion'] = 0.0
+            
+            return features
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error al analizar ticks intravela: {str(e)}")
+            return None
+    
+    def obtener_datos_completos_con_ticks(self, velas_historicas=1000):
+        """
+        Obtiene datos históricos y los enriquece con features intravela
+        simuladas (para entrenamiento histórico)
+        
+        Args:
+            velas_historicas: Número de velas históricas
+            
+        Returns:
+            DataFrame con velas + features intravela simuladas
+        """
+        try:
+            # Obtener velas históricas
+            df = self.obtener_datos_historicos(velas_historicas)
+            
+            if df is None:
+                return None
+            
+            # Simular features intravela basadas en OHLC
+            # (En producción, estas se obtienen de ticks reales)
+            
+            df['rango_intravela'] = df['high'] - df['low']
+            df['posicion_precio'] = (df['close'] - df['low']) / (df['high'] - df['low'] + 1e-10)
+            df['volatilidad_intravela'] = df['rango_intravela'] / df['close']
+            
+            # Presión basada en la posición del cierre
+            df['presion_neta'] = (df['posicion_precio'] - 0.5) * 2  # -1 a 1
+            df['presion_compradora'] = (df['presion_neta'] + 1) / 2
+            df['presion_vendedora'] = 1 - df['presion_compradora']
+            
+            # Velocidad basada en el cuerpo de la vela
+            df['velocidad'] = abs(df['close'] - df['open']) / df['close']
+            
+            # Momentum
+            df['momentum_primera_mitad'] = (df['high'] + df['low']) / 2 - df['open']
+            df['momentum_segunda_mitad'] = df['close'] - (df['high'] + df['low']) / 2
+            
+            # Spread simulado (basado en volatilidad)
+            df['spread_promedio'] = df['volatilidad_intravela'] * 10
+            df['spread_max'] = df['spread_promedio'] * 1.5
+            df['spread_min'] = df['spread_promedio'] * 0.5
+            
+            # Cambios de dirección (simulado)
+            df['cambios_direccion'] = np.random.randint(5, 20, len(df))
+            
+            # Número de ticks (simulado)
+            df['num_ticks'] = np.random.randint(50, 200, len(df))
+            
+            # Aceleración (simulada)
+            df['aceleracion'] = df['velocidad'].diff().fillna(0)
+            
+            self.logger.info(f"✅ Datos completos con features intravela generados")
+            
+            return df
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error al obtener datos completos: {str(e)}")
+            return None
+    
+    def obtener_datos_live_con_ticks(self):
+        """
+        Obtiene datos en tiempo real con análisis tick-by-tick real
+        
+        Returns:
+            tuple: (DataFrame velas, dict features_intravela)
+        """
+        try:
+            # Obtener velas recientes
+            df_velas = self.obtener_datos_historicos(100)
+            
+            if df_velas is None:
+                return None, None
+            
+            # Obtener ticks de la vela actual
+            df_ticks = self.obtener_ticks_vela_actual()
+            
+            # Analizar ticks
+            features_intravela = None
+            if df_ticks is not None and len(df_ticks) >= 5:
+                features_intravela = self.analizar_ticks_intravela(df_ticks)
+            
+            return df_velas, features_intravela
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error al obtener datos live con ticks: {str(e)}")
+            return None, None

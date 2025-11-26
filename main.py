@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-BOT DE TRADING XM - MAIN
-Sistema de trading automatizado con IA
+BOT DE TRADING XM - VERSIÓN PROFESIONAL
+Con análisis tick-by-tick y aprendizaje en vivo
 """
 
+import sys
 import os
 import time
 import signal
 from datetime import datetime
 import json
-import joblib
-import glob
-import sys
 
-# Agregar directorio actual al path para evitar problemas de importación
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from core.mt5_connector import MT5Connector
@@ -22,379 +19,300 @@ from core.data_manager import DataManager
 from core.feature_engineer import FeatureEngineer
 from strategy.signal_generator import SignalGenerator
 from strategy.risk_manager import RiskManager
-from strategy.trade_executor import TradeExecutor as OrderExecutor
+from strategy.trade_executor import TradeExecutor
+from training.continuous_learner import ContinuousLearner
 
 class TradingBot:
-    """Bot de Trading Principal"""
-    
-    def __init__(self, config_path='config/xm_config.json'):
-        """Inicializa el bot de trading"""
-        # Cargar configuración
-        with open(config_path, 'r') as f:
+    def __init__(self):
+        with open('config/xm_config.json', 'r') as f:
             self.config = json.load(f)
+        
+        self.running = False
+        self.ciclo = 0
         
         # Componentes
         self.mt5 = None
         self.data_manager = None
         self.feature_engineer = None
-        self.modelo_hibrido = None
         self.signal_generator = None
         self.risk_manager = None
-        self.order_executor = None
+        self.trade_executor = None
+        self.continuous_learner = None
+        self.modelo = None
         
-        # Estado
-        self.running = False
-        self.modo = None
-        
-        # Configurar señales de interrupción
-        signal.signal(signal.SIGINT, self._signal_handler)
-        signal.signal(signal.SIGTERM, self._signal_handler)
-    
-    def _signal_handler(self, signum, frame):
-        """Maneja señales de interrupción"""
-        print("\n\n⚠️  Señal de interrupción recibida...")
-        print("🛑 Deteniendo bot de forma segura...")
-        self.stop()
-        sys.exit(0)
+        print(f"\n{'='*70}")
+        print(f"  🤖 BOT DE TRADING XM - INICIALIZANDO")
+        print(f"{'='*70}\n")
     
     def inicializar(self):
-        """Inicializa todos los componentes del bot"""
-        try:
-            print("\n" + "="*70)
-            print("  🤖 BOT DE TRADING XM - INICIALIZANDO")
-            print("="*70 + "\n")
-            
-            print("📋 INICIALIZANDO COMPONENTES...\n")
-            
-            # 1. Conectar a MT5
-            print("1️⃣  Conectando a MT5...")
-            self.mt5 = MT5Connector(config_path='config/xm_config.json')
-            if not self.mt5.conectar():
-                print("❌ Error: No se pudo conectar a MT5")
-                return False
-            print("   ✅ Conectado\n")
-            
-            # 2. Data Manager
-            print("2️⃣  Inicializando Data Manager...")
-            self.data_manager = DataManager(self.mt5)
-            print("   ✅ Listo\n")
-            
-            # 3. Feature Engineer
-            print("3️⃣  Inicializando Feature Engineer...")
-            self.feature_engineer = FeatureEngineer()
-            print("   ✅ Listo\n")
-            
-            # 4. Cargar Modelo
-            print("4️⃣  Cargando modelo de IA...")
-            if not self._cargar_modelo():
-                print("❌ Error: No se pudo cargar el modelo")
-                print("   Ejecuta 'python entrenar_completo.py' primero")
-                return False
-            
-            # 5. Signal Generator
-            print("5️⃣  Inicializando Signal Generator...")
-            self.signal_generator = SignalGenerator(
-                self.modelo_hibrido,
-                self.feature_engineer,
-                config=self.config
-            )
-            print("   ✅ Listo\n")
-            
-            # 6. Risk Manager
-            print("6️⃣  Inicializando Risk Manager...")
-            self.risk_manager = RiskManager(self.mt5)
-            print("   ✅ Listo\n")
-            
-            # 7. Order Executor
-            print("7️⃣  Inicializando Order Executor...")
-            self.order_executor = OrderExecutor(self.mt5, self.risk_manager)
-            print("   ✅ Listo\n")
-            
-            print("="*70)
-            print("  ✅ TODOS LOS COMPONENTES INICIALIZADOS")
-            print("="*70 + "\n")
-            
-            return True
-            
-        except Exception as e:
-            print(f"\n❌ Error durante inicialización: {e}")
-            import traceback
-            traceback.print_exc()
+        """Inicializa todos los componentes"""
+        print("📋 INICIALIZANDO COMPONENTES...\n")
+        
+        # 1. MT5
+        print("1️⃣  Conectando a MT5...")
+        self.mt5 = MT5Connector()
+        if not self.mt5.conectar():
+            print("❌ Error de conexión")
             return False
+        print("   ✅ Conectado\n")
+        
+        # 2. Data Manager
+        print("2️⃣  Inicializando Data Manager...")
+        self.data_manager = DataManager(self.mt5)
+        print("   ✅ Listo\n")
+        
+        # 3. Feature Engineer
+        print("3️⃣  Inicializando Feature Engineer...")
+        self.feature_engineer = FeatureEngineer()
+        print("   ✅ Listo\n")
+        
+        # 4. Cargar modelo
+        print("4️⃣  Cargando modelo de IA...")
+        if not self._cargar_modelo():
+            print("   ❌ Error al cargar modelo")
+            return False
+        print("   ✅ Modelo cargado\n")
+        
+        # 5. Signal Generator
+        print("5️⃣  Inicializando Signal Generator...")
+        self.signal_generator = SignalGenerator(self.modelo, self.feature_engineer)
+        print("   ✅ Listo\n")
+        
+        # 6. Risk Manager
+        print("6️⃣  Inicializando Risk Manager...")
+        self.risk_manager = RiskManager(self.mt5)
+        print("   ✅ Listo\n")
+        
+        # 7. Trade Executor
+        print("7️⃣  Inicializando Order Executor...")
+        self.trade_executor = TradeExecutor(self.mt5, self.risk_manager)
+        print("   ✅ Listo\n")
+        
+        # 8. Continuous Learner
+        print("8️⃣  Inicializando Continuous Learner...")
+        self.continuous_learner = ContinuousLearner(self.modelo, self.feature_engineer)
+        print("   ✅ Listo\n")
+        
+        print(f"{'='*70}")
+        print(f"  ✅ TODOS LOS COMPONENTES INICIALIZADOS")
+        print(f"{'='*70}\n")
+        
+        return True
     
     def _cargar_modelo(self):
-        """Carga el modelo híbrido"""
+        """Carga el modelo más reciente"""
         try:
-            # Buscar modelos en la carpeta
-            modelos = glob.glob('models/modelo_hibrido_*.pkl')
+            import pickle
+            import glob
+            
+            # Buscar modelos
+            modelos = glob.glob('models/*.pkl')
             
             if not modelos:
-                print("   ⚠️  No se encontraron modelos en 'models/'")
-                print("   📂 Archivos en models/:")
-                # Listar todos los archivos en models/
-                if os.path.exists('models'):
-                    archivos = os.listdir('models')
-                    if archivos:
-                        for archivo in archivos:
-                            print(f"      - {archivo}")
-                    else:
-                        print("      (carpeta vacía)")
-                else:
-                    print("      (carpeta no existe)")
+                print("   ⚠️ No hay modelos entrenados")
+                print("   💡 Ejecuta 'python entrenar_completo.py'")
                 return False
             
-            # Cargar el más reciente
-            modelo_path = max(modelos, key=os.path.getctime)
-            print(f"   📂 Cargando: {os.path.basename(modelo_path)}")
+            # Ordenar por fecha (más reciente primero)
+            modelos.sort(reverse=True)
             
-            self.modelo_hibrido = joblib.load(modelo_path)
+            # Intentar cargar modelos hasta encontrar uno válido
+            for modelo_path in modelos:
+                try:
+                    with open(modelo_path, 'rb') as f:
+                        modelo_cargado = pickle.load(f)
+                    
+                    # Verificar que sea un modelo válido (no un array)
+                    if hasattr(modelo_cargado, 'predict'):
+                        self.modelo = modelo_cargado
+                        print(f"   📂 Cargando: {os.path.basename(modelo_path)}")
+                        print(f"   ✅ Modelo cargado exitosamente")
+                        print(f"   📊 Tipo: {type(self.modelo).__name__}")
+                        return True
+                    else:
+                        print(f"   ⚠️ {os.path.basename(modelo_path)} no es un modelo válido (es {type(modelo_cargado).__name__})")
+                        continue
+                        
+                except Exception as e:
+                    print(f"   ⚠️ Error al cargar {os.path.basename(modelo_path)}: {str(e)}")
+                    continue
             
-            print(f"   ✅ Modelo cargado exitosamente")
-            print(f"   📊 Tipo: {type(self.modelo_hibrido).__name__}\n")
-            
-            return True
+            # Si llegamos aquí, no hay modelos válidos
+            print("   ❌ No se encontraron modelos válidos")
+            print("   💡 Ejecuta 'python entrenar_completo.py' para entrenar un modelo")
+            return False
             
         except Exception as e:
-            print(f"   ❌ Error al cargar modelo: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"   ❌ Error: {str(e)}")
             return False
     
-    def seleccionar_modo(self):
-        """Permite al usuario seleccionar el modo de operación"""
-        print("\n" + "="*70)
-        print("  🎯 SELECCIÓN DE MODO")
-        print("="*70 + "\n")
+    def ciclo_principal(self):
+        """Ciclo principal del bot"""
+        self.ciclo += 1
         
-        print("Modos disponibles:")
-        print("  1. 🤖 Automático (el bot opera solo)")
-        print("  2. 📊 Semi-automático (el bot sugiere, tú decides)")
-        print("  3. 👁️  Solo observación (sin operar)")
-        print("  0. ❌ Salir\n")
+        print(f"\n{'─'*70}")
+        print(f"🔄 Ciclo #{self.ciclo} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"{'─'*70}\n")
         
-        while True:
-            try:
-                opcion = input("Selecciona modo (0-3): ").strip()
-                
-                if opcion == '0':
-                    return None
-                elif opcion == '1':
-                    self.modo = 'automatico'
-                    print("\n✅ Modo automático activado")
-                    return 'automatico'
-                elif opcion == '2':
-                    self.modo = 'semi_automatico'
-                    print("\n✅ Modo semi-automático activado")
-                    return 'semi_automatico'
-                elif opcion == '3':
-                    self.modo = 'observacion'
-                    print("\n✅ Modo observación activado")
-                    return 'observacion'
-                else:
-                    print("❌ Opción inválida. Intenta de nuevo.")
-                    
-            except KeyboardInterrupt:
-                print("\n\n⚠️  Operación cancelada")
-                return None
-    
-    def ejecutar(self):
-        """Ejecuta el loop principal del bot"""
         try:
-            self.running = True
+            # 1. Obtener datos con análisis tick-by-tick
+            print("📥 Obteniendo datos del mercado...")
+            df_velas, features_intravela = self.data_manager.obtener_datos_live_con_ticks()
             
-            print("\n" + "="*70)
-            print(f"  🚀 BOT INICIADO - MODO: {self.modo.upper()}")
-            print("="*70 + "\n")
+            if df_velas is None:
+                print("   ⚠️ No se pudieron obtener datos")
+                return
             
-            print("📊 Información:")
-            print(f"   • Par: {self.config['TRADING']['SYMBOL']}")
-            print(f"   • Timeframe: {self.config['TRADING']['TIMEFRAME']}")
-            print(f"   • Modo: {self.modo}")
-            print(f"   • Presiona Ctrl+C para detener\n")
+            print(f"   ✅ Descargadas {len(df_velas)} velas")
+            print(f"   📅 Desde: {df_velas['time'].iloc[0]}")
+            print(f"   📅 Hasta: {df_velas['time'].iloc[-1]}")
             
-            ciclo = 0
+            if features_intravela:
+                print(f"   🎯 Features intravela capturadas:")
+                print(f"      • Presión neta: {features_intravela.get('presion_neta', 0):.3f}")
+                print(f"      • Volatilidad: {features_intravela.get('volatilidad_normalizada', 0):.2f} pips")
+                print(f"      • Ticks: {features_intravela.get('num_ticks', 0)}")
             
+            print(f"✅ {len(df_velas)} velas obtenidas\n")
+            
+            # 2. Generar señal
+            print("🧠 Analizando mercado...\n")
+            senal = self.signal_generator.generar_senal(df_velas, features_intravela)
+            
+            # Mostrar señal
+            self._mostrar_senal(senal)
+            
+            # 3. Ejecutar trade si es necesario (solo en modo automático)
+            if hasattr(self, 'modo') and self.modo == 'automatico':
+                if senal['tipo'] in ['CALL', 'PUT']:
+                    puede_operar, razon = self.risk_manager.puede_operar(senal)
+                    
+                    if puede_operar:
+                        print("\n🚀 Ejecutando trade...")
+                        resultado = self.trade_executor.ejecutar_orden(senal)
+                        
+                        if resultado:
+                            print("   ✅ Trade ejecutado")
+                            # Agregar experiencia al learner
+                            self.continuous_learner.agregar_experiencia(senal, resultado)
+                    else:
+                        print(f"\n⚠️  Trade rechazado: {razon}")
+            
+            # 4. Monitorear trades abiertos (CORREGIDO)
+            self.trade_executor.monitorear_trades()
+            
+            # 5. Aprendizaje continuo
+            if self.ciclo % 10 == 0:  # Cada 10 ciclos
+                print("\n🧠 Ejecutando aprendizaje continuo...")
+                self.continuous_learner.aprender()
+            
+            # 6. Mostrar estadísticas
+            self._mostrar_estadisticas()
+            
+        except Exception as e:
+            print(f"\n❌ Error en ciclo: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
+    def _mostrar_senal(self, senal):
+        """Muestra la señal generada"""
+        print(f"\n{'='*70}")
+        print(f"  📊 SEÑAL GENERADA")
+        print(f"{'='*70}\n")
+        
+        tipo = senal['tipo']
+        if tipo == 'CALL':
+            emoji = '🟢'
+        elif tipo == 'PUT':
+            emoji = '🔴'
+        else:
+            emoji = '⚪'
+        
+        print(f"{emoji} Tipo: {tipo}")
+        print(f"💪 Fuerza: {senal['fuerza']:.2f}%")
+        print(f"📝 Razón: {senal['razon']}")
+        
+        print(f"\n{'='*70}\n")
+    
+    def _mostrar_estadisticas(self):
+        """Muestra estadísticas de la cuenta"""
+        print(f"\n{'─'*70}")
+        print(f"📊 ESTADÍSTICAS")
+        print(f"{'─'*70}")
+        
+        info = self.mt5.obtener_info_cuenta()
+        if info:
+            print(f"💰 Balance: ${info['balance']:.2f}")
+            print(f"📈 Equity: ${info['equity']:.2f}")
+            print(f"📊 Margen: ${info['margin']:.2f}")
+        
+        stats = self.trade_executor.obtener_estadisticas()
+        if stats:
+            try:
+                print(f"📈 Win Rate: {stats['win_rate']:.1f}%")
+                print(f"💵 Profit Total: ${stats['profit_total']:.2f}")
+                print(f"📊 Trades: {stats['total_trades']}")
+            except KeyError as e:
+                print(f"⚠️  Estadísticas parciales disponibles")
+        
+        print(f"{'─'*70}\n")
+    
+    def ejecutar(self, modo='observacion', intervalo=60):
+        """Ejecuta el bot"""
+        self.modo = modo
+        self.running = True
+        
+        print(f"\n{'='*70}")
+        print(f"  🚀 BOT INICIADO - MODO: {modo.upper()}")
+        print(f"{'='*70}\n")
+        print(f"📊 Información:")
+        print(f"   • Par: {self.config['TRADING']['SYMBOL']}")
+        print(f"   • Timeframe: {self.config['TRADING']['TIMEFRAME']}")
+        print(f"   • Modo: {modo}")
+        print(f"   • Presiona Ctrl+C para detener\n")
+        
+        try:
             while self.running:
-                ciclo += 1
-                print(f"\n{'─'*70}")
-                print(f"🔄 Ciclo #{ciclo} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                print(f"{'─'*70}\n")
+                self.ciclo_principal()
                 
-                # 1. Obtener datos - ✅ CORREGIDO
-                print("📥 Obteniendo datos del mercado...")
-                velas = self.data_manager.cargar_datos_historicos(
-                    cantidad=self.config['MODELO']['VELAS_HISTORICAS']
-                )
-                
-                if velas is None or len(velas) == 0:
-                    print("❌ No se pudieron obtener datos")
-                    time.sleep(60)
-                    continue
-                
-                print(f"✅ {len(velas)} velas obtenidas\n")
-                
-                # 2. Generar señal - ✅ CORREGIDO: generar_señal (con tilde)
-                print("🧠 Analizando mercado...")
-                senal = self.signal_generator.generar_señal(velas)
-                
-                if senal is None:
-                    print("⚠️  No se pudo generar señal")
-                    time.sleep(60)
-                    continue
-                
-                # Mostrar señal
-                self._mostrar_senal(senal)
-                
-                # 3. Evaluar riesgo
-                if senal['tipo'] != 'HOLD':
-                    print("\n⚖️  Evaluando riesgo...")
-                    puede_operar = self.risk_manager.puede_operar()
-                    
-                    if not puede_operar:
-                        print("❌ No se puede operar (límites de riesgo)")
-                        time.sleep(60)
-                        continue
-                    
-                    print("✅ Riesgo aceptable\n")
-                    
-                    # 4. Ejecutar según modo
-                    if self.modo == 'automatico':
-                        self._ejecutar_automatico(senal)
-                    elif self.modo == 'semi_automatico':
-                        self._ejecutar_semi_automatico(senal)
-                
-                # 5. Mostrar estadísticas
-                self._mostrar_estadisticas()
-                
-                # 6. Esperar siguiente ciclo
-                intervalo = 60
-                print(f"\n⏳ Esperando {intervalo}s hasta próximo ciclo...")
+                print(f"\n⏳ Esperando {intervalo}s hasta próximo ciclo...\n")
                 time.sleep(intervalo)
                 
         except KeyboardInterrupt:
             print("\n\n⚠️  Interrupción detectada")
-            self.stop()
-        except Exception as e:
-            print(f"\n❌ Error en loop principal: {e}")
-            import traceback
-            traceback.print_exc()
-            self.stop()
+            self.detener()
     
-    def _mostrar_senal(self, senal):
-        """Muestra la señal generada"""
-        print("\n" + "="*70)
-        print("  📊 SEÑAL GENERADA")
-        print("="*70)
+    def detener(self):
+        """Detiene el bot"""
+        print(f"\n{'='*70}")
+        print(f"  🛑 DETENIENDO BOT...")
+        print(f"{'='*70}\n")
         
-        tipo_emoji = {
-            'BUY': '🟢',
-            'SELL': '🔴',
-            'HOLD': '⚪'
-        }
-        
-        # Tipo de señal
-        tipo = senal.get('tipo', 'UNKNOWN')
-        print(f"\n{tipo_emoji.get(tipo, '❓')} Tipo: {tipo}")
-        
-        # Fuerza (con protección)
-        if 'fuerza' in senal:
-            print(f"💪 Fuerza: {senal['fuerza']:.2%}")
-        
-        # Precio actual
-        if 'precio_actual' in senal and senal['precio_actual'] > 0:
-            print(f"📈 Precio actual: {senal['precio_actual']:.5f}")
-        
-        # Detalles solo si no es HOLD
-        if tipo != 'HOLD':
-            if 'take_profit' in senal and senal['take_profit'] > 0:
-                print(f"🎯 Take Profit: {senal['take_profit']:.5f}")
-            if 'stop_loss' in senal and senal['stop_loss'] > 0:
-                print(f"🛡️  Stop Loss: {senal['stop_loss']:.5f}")
-            if 'lote' in senal and senal['lote'] > 0:
-                print(f"📊 Lote sugerido: {senal['lote']:.2f}")
-        
-        # Razón
-        if 'razon' in senal:
-            print(f"📝 Razón: {senal['razon']}")
-        
-        print("\n" + "="*70)
-
-    
-    def _ejecutar_automatico(self, senal):
-        """Ejecuta operación automáticamente"""
-        print("\n🤖 MODO AUTOMÁTICO - Ejecutando operación...")
-        
-        resultado = self.order_executor.ejecutar_orden(senal)
-        
-        if resultado['exito']:
-            print(f"✅ Orden ejecutada: Ticket #{resultado['ticket']}")
-        else:
-            print(f"❌ Error al ejecutar: {resultado['mensaje']}")
-    
-    def _ejecutar_semi_automatico(self, senal):
-        """Solicita confirmación antes de ejecutar"""
-        print("\n📊 MODO SEMI-AUTOMÁTICO")
-        print(f"\n¿Deseas ejecutar esta operación {senal['tipo']}?")
-        print("  1. ✅ Sí, ejecutar")
-        print("  2. ❌ No, saltar")
-        print("  0. 🛑 Detener bot\n")
-        
-        try:
-            respuesta = input("Selecciona (0-2): ").strip()
-            
-            if respuesta == '1':
-                print("\n✅ Ejecutando operación...")
-                resultado = self.order_executor.ejecutar_orden(senal)
-                
-                if resultado['exito']:
-                    print(f"✅ Orden ejecutada: Ticket #{resultado['ticket']}")
-                else:
-                    print(f"❌ Error al ejecutar: {resultado['mensaje']}")
-                    
-            elif respuesta == '2':
-                print("⏭️  Operación omitida")
-            elif respuesta == '0':
-                print("\n🛑 Deteniendo bot...")
-                self.stop()
-            else:
-                print("❌ Opción inválida, omitiendo operación")
-                
-        except KeyboardInterrupt:
-            print("\n\n⚠️  Interrupción detectada")
-            self.stop()
-    
-    def _mostrar_estadisticas(self):
-        """Muestra estadísticas del bot"""
-        try:
-            info = self.mt5.obtener_info_cuenta()
-            
-            print("\n" + "─"*70)
-            print("📊 ESTADÍSTICAS")
-            print("─"*70)
-            print(f"💰 Balance: ${info['balance']:.2f}")
-            print(f"📈 Equity: ${info['equity']:.2f}")
-            print(f"📊 Margen: ${info['margin']:.2f}")
-            print(f"🆓 Margen libre: ${info['margin_libre']:.2f}")
-            print(f"📉 Profit: ${info['profit']:.2f}")
-            print("─"*70)
-            
-        except Exception as e:
-            print(f"⚠️  No se pudieron obtener estadísticas: {e}")
-    
-    def stop(self):
-        """Detiene el bot de forma segura"""
-        print("\n🛑 Deteniendo bot...")
         self.running = False
         
-        if self.mt5:
-            self.mt5.desconectar()
-            print("🔌 Desconectado de MT5")
+        # Guardar estado del learner
+        if self.continuous_learner:
+            print("💾 Guardando aprendizaje...")
+            self.continuous_learner.guardar_estado()
         
-        print("✅ Bot detenido correctamente\n")
-
+        # Cerrar conexión
+        if self.mt5:
+            self.mt5.cerrar()
+        
+        print("\n✅ Bot detenido correctamente\n")
 
 def main():
     """Función principal"""
+    
+    def signal_handler(sig, frame):
+        if 'bot' in globals():
+            bot.detener()
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    # Crear bot
     bot = TradingBot()
     
     # Inicializar
@@ -402,16 +320,30 @@ def main():
         print("\n❌ No se pudo inicializar el bot")
         return
     
-    # Seleccionar modo
-    modo = bot.seleccionar_modo()
-    if modo is None:
-        print("\n👋 Saliendo...")
-        bot.stop()
-        return
+    # Menú
+    print(f"\n{'='*70}")
+    print(f"  🎯 SELECCIÓN DE MODO")
+    print(f"{'='*70}\n")
+    print("Modos disponibles:")
+    print("  1. 🤖 Automático (el bot opera solo)")
+    print("  2. 📊 Semi-automático (el bot sugiere, tú decides)")
+    print("  3. 👁️  Solo observación (sin operar)")
+    print("  0. ❌ Salir\n")
     
-    # Ejecutar
-    bot.ejecutar()
-
+    opcion = input("Selecciona modo (0-3): ")
+    
+    if opcion == '1':
+        print("\n✅ Modo automático activado")
+        bot.ejecutar(modo='automatico', intervalo=60)
+    elif opcion == '2':
+        print("\n✅ Modo semi-automático activado")
+        bot.ejecutar(modo='semiautomatico', intervalo=60)
+    elif opcion == '3':
+        print("\n✅ Modo observación activado")
+        bot.ejecutar(modo='observacion', intervalo=60)
+    else:
+        print("\n👋 Saliendo...")
+        bot.mt5.cerrar()
 
 if __name__ == "__main__":
     main()
