@@ -173,11 +173,12 @@ def main():
         logger.info("🔄 Entrenando modelo híbrido...")
         
         # Cargar el modelo histórico recién entrenado
-        trainer_hibrido = HybridTrainer(
-            modelo_historico=modelo_historico,
-            peso_historico=0.7,
-            n_estimators=200
-        )
+        # Crear trainer híbrido (sin pasar argumentos en __init__)
+        trainer_hibrido = HybridTrainer()
+
+        # Asignar el modelo histórico manualmente
+        trainer_hibrido.modelo_historico = modelo_historico
+
         
         # Usar últimas 1000 velas como datos de "tiempo real"
         modelo_hibrido = trainer_hibrido.entrenar(
