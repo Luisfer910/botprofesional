@@ -1,170 +1,189 @@
-from typing import Tuple, Optional, Callable, Dict
-import numpy as np
 import pandas as pd
+import numpy as np
+import joblib
+from datetime import datetime
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+import logging
 
-try:
-    from sklearn.metrics import roc_auc_score, accuracy_score
-    from sklearn.ensemble import RandomForestClassifier
-    _HAS_SKLEARN = True
-except Exception:
-    _HAS_SKLEARN = False
+logger = logging.getLogger(__name__)
 
 class HistoricalTrainer:
     """
-    Clase de entrenamiento histórico con API dual:
-      - entrenar_modelo(X, y): API corta (compatibilidad). Hace split interno y usa modelo por defecto.
-      - entrenar_modelo_full(X_train, y_train, X_test, y_test, modelo): API completa.
-    Filtra columnas NO numéricas SOLO para el modelo (no modifica el DataFrame original).
+    Entrenador de modelos con datos históricos
     """
-
-    def __init__(self, log_fn: Optional[Callable[[str], None]] = None, default_train_frac: float = 0.85):
-        self.log = log_fn if log_fn is not None else self._default_log
-        self.default_train_frac = default_train_frac
-
-    @staticmethod
-    def _default_log(msg: str):
-        print(msg)
-
-    @staticmethod
-    def _validate_inputs(X_train: pd.DataFrame, y_train: pd.Series,
-                         X_test: pd.DataFrame, y_test: pd.Series):
-        if X_train is None or X_test is None or y_train is None or y_test is None:
-            raise ValueError("Entradas de entrenamiento/prueba no pueden ser None.")
-        if len(X_train) == 0 or len(X_test) == 0:
-            raise ValueError("X_train o X_test están vacíos.")
-        if len(y_train) == 0 or len(y_test) == 0:
-            raise ValueError("y_train o y_test están vacíos.")
-        if len(X_train) != len(y_train):
-            raise ValueError(f"Longitud inconsistente: X_train={len(X_train)} vs y_train={len(y_train)}")
-        if len(X_test) != len(y_test):
-            raise ValueError(f"Longitud inconsistente: X_test={len(X_test)} vs y_test={len(y_test)}")
-
-    def _numeric_view(self, df: pd.DataFrame) -> pd.DataFrame:
+    
+    def __init__(self, n_estimators=300, max_depth=None, min_samples_split=5, random_state=42):
         """
-        Retorna una vista SOLO con columnas numéricas sin modificar df original.
-        Loguea columnas excluidas y normaliza tipos bool/int/float.
+        Inicializa el entrenador
+        
+        Args:
+            n_estimators: Número de árboles en el Random Forest
+            max_depth: Profundidad máxima de los árboles
+            min_samples_split: Mínimo de muestras para dividir un nodo
+            random_state: Semilla para reproducibilidad
         """
-        cols_original = list(df.columns)
-        df_num = df.select_dtypes(include=['number']).copy()
-
-        excluidas = [c for c in cols_original if c not in df_num.columns]
-        if excluidas:
-            self.log(f"ℹ️ Columnas no numéricas excluidas del entrenamiento: {excluidas}")
-
-        if df_num.empty:
-            raise ValueError("No hay columnas numéricas disponibles para el modelo.")
-
-        # Normalizar tipos
-        for c in df_num.columns:
-            if pd.api.types.is_bool_dtype(df_num[c]):
-                df_num[c] = df_num[c].astype(np.int64)
-            elif pd.api.types.is_integer_dtype(df_num[c]):
-                df_num[c] = df_num[c].astype(np.int64)
-            elif pd.api.types.is_float_dtype(df_num[c]):
-                df_num[c] = df_num[c].astype(np.float64)
-
-        # Log breve
-        preview_cols = list(df_num.columns)[:10]
-        suffix = "..." if len(df_num.columns) > 10 else ""
-        self.log(f"✅ Columnas usadas para el modelo ({len(df_num.columns)}): {preview_cols}{suffix}")
-
-        return df_num
-
-    def preparar_split(self, X: pd.DataFrame, y: pd.Series, train_frac: float = None) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]:
+        self.n_estimators = n_estimators
+        self.max_depth = max_depth
+        self.min_samples_split = min_samples_split
+        self.random_state = random_state
+        self.modelo = None
+        
+    def preparar_datos(self, df):
         """
-        Split temporal simple (sin shuffle) respetando orden.
+        Prepara los datos para entrenamiento
+        
+        Args:
+            df: DataFrame con features y target
+            
+        Returns:
+            X, y: Features y target separados
         """
-        tf = self.default_train_frac if train_frac is None else train_frac
-        if not 0.0 < tf < 1.0:
-            raise ValueError("train_frac debe estar entre 0 y 1.")
-        if len(X) != len(y):
-            raise ValueError("X e y deben tener la misma longitud.")
-        split_idx = int(len(X) * tf)
-        X_train = X.iloc[:split_idx].copy()
-        y_train = y.iloc[:split_idx].copy()
-        X_test  = X.iloc[split_idx:].copy()
-        y_test  = y.iloc[split_idx:].copy()
-        return X_train, y_train, X_test, y_test
-
-    # ----------------------------
-    # API COMPLETA (recomendada)
-    # ----------------------------
-    def entrenar_modelo_full(self,
-                             X_train: pd.DataFrame,
-                             y_train: pd.Series,
-                             X_test: pd.DataFrame,
-                             y_test: pd.Series,
-                             modelo) -> Tuple[object, Dict[str, float]]:
+        try:
+            if 'target' not in df.columns:
+                logger.error("No se encuentra columna 'target' en el DataFrame")
+                return None, None
+            
+            # Separar features y target
+            X = df.drop('target', axis=1)
+            y = df['target']
+            
+            # Eliminar columnas no numéricas
+            X = X.select_dtypes(include=[np.number])
+            
+            logger.info(f"✅ Datos preparados: {X.shape[0]} filas, {X.shape[1]} features")
+            
+            return X, y
+            
+        except Exception as e:
+            logger.error(f"Error preparando datos: {e}")
+            return None, None
+    
+    def entrenar(self, df):
         """
-        Entrena usando conjuntos explícitos y un modelo provisto.
+        Entrena el modelo (método principal - llama a entrenar_modelo)
+        
+        Args:
+            df: DataFrame con features y target
+            
+        Returns:
+            Modelo entrenado o None si hay error
         """
-        # Validaciones
-        self._validate_inputs(X_train, y_train, X_test, y_test)
-
-        self.log("🔧 Preparando datos para entrenamiento (solo columnas numéricas)...")
-        X_train_model = self._numeric_view(X_train)
-        X_test_model  = self._numeric_view(X_test)
-
-        # Entrenamiento
-        self.log("🤖 Entrenando modelo con datos históricos...")
-        modelo.fit(X_train_model, y_train)
-
-        # Predicciones
-        self.log("📈 Generando predicciones en test...")
-        y_pred_proba = None
-        y_pred_binary = None
-        if hasattr(modelo, "predict_proba"):
-            proba = modelo.predict_proba(X_test_model)
-            if isinstance(proba, np.ndarray):
-                y_pred_proba = proba[:, 1] if proba.ndim == 2 and proba.shape[1] >= 2 else proba.squeeze()
-            else:
-                y_pred_proba = np.array(proba)
-        else:
-            y_pred_binary = modelo.predict(X_test_model)
-            y_pred_proba = y_pred_binary.astype(float)
-            self.log("ℹ️ Modelo sin predict_proba: usando predicción binaria como probabilidad proxy.")
-
-        # Métricas
-        metricas: Dict[str, float] = {}
-        if _HAS_SKLEARN:
-            try:
-                metricas['auc'] = float(roc_auc_score(y_test, y_pred_proba))
-                self.log(f"📊 ROC-AUC: {metricas['auc']:.4f}")
-            except Exception as e:
-                self.log(f"ℹ️ No se pudo calcular AUC: {e}")
-            try:
-                if y_pred_binary is None:
-                    y_pred_binary = (y_pred_proba >= 0.5).astype(int)
-                acc = accuracy_score(y_test, y_pred_binary)
-                metricas['accuracy'] = float(acc)
-                self.log(f"📊 Accuracy: {metricas['accuracy']:.4f}")
-            except Exception as e:
-                self.log(f"ℹ️ No se pudo calcular Accuracy: {e}")
-
-        self.log("✅ Entrenamiento y evaluación completados.")
-        return modelo, metricas
-
-    # ----------------------------
-    # API CORTA (compatibilidad)
-    # ----------------------------
-    def entrenar_modelo(self, X: pd.DataFrame, y: pd.Series) -> Tuple[object, Dict[str, float]]:
+        X, y = self.preparar_datos(df)
+        if X is None or y is None:
+            return None
+        return self.entrenar_modelo(X, y)
+    
+    def entrenar_modelo(self, X, y):
         """
-        Compatibilidad con llamadas existentes: trainer.entrenar_modelo(X, y)
-        - Hace split interno (default_train_frac)
-        - Usa RandomForest por defecto
-        - Internamente llama a entrenar_modelo_full
+        Entrena el modelo Random Forest
+        
+        Args:
+            X: Features
+            y: Target
+            
+        Returns:
+            Modelo entrenado o None si hay error
         """
-        self.log("ℹ️ Usando API corta entrenar_modelo(X, y): se hará split interno y modelo por defecto.")
-        X_train, y_train, X_test, y_test = self.preparar_split(X, y, train_frac=self.default_train_frac)
-
-        if not _HAS_SKLEARN:
-            raise RuntimeError("scikit-learn no disponible para construir el modelo por defecto.")
-
-        modelo = RandomForestClassifier(
-            n_estimators=300,
-            max_depth=None,
-            random_state=42,
-            n_jobs=-1
-        )
-
-        return self.entrenar_modelo_full(X_train, y_train, X_test, y_test, modelo)
+        try:
+            if X is None or y is None:
+                logger.error("Datos inválidos para entrenamiento")
+                return None
+            
+            # Split train/test
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.2, random_state=self.random_state, stratify=y
+            )
+            
+            logger.info(f"📊 Distribución de datos:")
+            logger.info(f"   Training: {len(X_train)} muestras")
+            logger.info(f"   Testing: {len(X_test)} muestras")
+            
+            # Crear y entrenar modelo
+            self.modelo = RandomForestClassifier(
+                n_estimators=self.n_estimators,
+                max_depth=self.max_depth,
+                min_samples_split=self.min_samples_split,
+                random_state=self.random_state,
+                n_jobs=-1
+            )
+            
+            logger.info("🤖 Entrenando Random Forest...")
+            self.modelo.fit(X_train, y_train)
+            
+            # Evaluar
+            y_pred_train = self.modelo.predict(X_train)
+            y_pred_test = self.modelo.predict(X_test)
+            
+            acc_train = accuracy_score(y_train, y_pred_train)
+            acc_test = accuracy_score(y_test, y_pred_test)
+            
+            logger.info(f"✅ Modelo entrenado exitosamente!")
+            logger.info(f"   Accuracy Training: {acc_train:.4f}")
+            logger.info(f"   Accuracy Testing: {acc_test:.4f}")
+            
+            # Reporte de clasificación
+            logger.info("\n📈 Reporte de Clasificación:")
+            print(classification_report(y_test, y_pred_test, 
+                                       target_names=['Venta', 'Neutral', 'Compra']))
+            
+            # Matriz de confusión
+            logger.info("\n🔢 Matriz de Confusión:")
+            print(confusion_matrix(y_test, y_pred_test))
+            
+            # Feature importance
+            feature_importance = pd.DataFrame({
+                'feature': X.columns,
+                'importance': self.modelo.feature_importances_
+            }).sort_values('importance', ascending=False)
+            
+            logger.info("\n🎯 Top 10 Features más importantes:")
+            print(feature_importance.head(10).to_string(index=False))
+            
+            return self.modelo
+            
+        except Exception as e:
+            logger.error(f"Error entrenando modelo: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def guardar_modelo(self, ruta='models/modelo_historico.pkl'):
+        """
+        Guarda el modelo entrenado
+        
+        Args:
+            ruta: Ruta donde guardar el modelo
+        """
+        try:
+            if self.modelo is None:
+                logger.error("No hay modelo para guardar")
+                return False
+            
+            import os
+            os.makedirs(os.path.dirname(ruta), exist_ok=True)
+            
+            joblib.dump(self.modelo, ruta)
+            logger.info(f"✅ Modelo guardado en: {ruta}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error guardando modelo: {e}")
+            return False
+    
+    def cargar_modelo(self, ruta='models/modelo_historico.pkl'):
+        """
+        Carga un modelo previamente guardado
+        
+        Args:
+            ruta: Ruta del modelo a cargar
+        """
+        try:
+            self.modelo = joblib.load(ruta)
+            logger.info(f"✅ Modelo cargado desde: {ruta}")
+            return self.modelo
+            
+        except Exception as e:
+            logger.error(f"Error cargando modelo: {e}")
+            return None
