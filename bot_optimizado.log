@@ -100,3 +100,83 @@
 2025-11-27 13:05:06,507 | 📊 ❌ PERDIDA (Buy) | Movimiento: -0.00003 | Racha pérdidas: 1
 2025-11-27 13:05:07,271 | 🔄 Modelo actualizado.
 2025-11-27 13:05:07,299 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 99.8%
+2025-11-27 13:10:00,667 | 🕯️ CIERRE DE VELA: 2025-11-27 18:05:00
+2025-11-27 13:10:00,671 | 📊 ✅ GANADA (Buy) | Movimiento: 0.00019 | Racha pérdidas: 0
+2025-11-27 13:10:01,460 | 🔄 Modelo actualizado.
+2025-11-27 13:10:01,490 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 62.1%
+2025-11-27 13:15:09,045 | 🕯️ CIERRE DE VELA: 2025-11-27 18:10:00
+2025-11-27 13:15:09,047 | 📊 ✅ GANADA (Buy) | Movimiento: 0.00016 | Racha pérdidas: 0
+2025-11-27 13:15:09,956 | 🔄 Modelo actualizado.
+2025-11-27 13:15:09,996 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 72.1%
+2025-11-27 13:20:09,441 | 🕯️ CIERRE DE VELA: 2025-11-27 18:15:00
+2025-11-27 13:20:09,443 | 📊 ✅ GANADA (Buy) | Movimiento: 0.00011 | Racha pérdidas: 0
+2025-11-27 13:20:10,379 | 🔄 Modelo actualizado.
+2025-11-27 13:20:10,409 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 98.1%
+2025-11-27 13:20:10,409 | 📈 STATS: 9/19 (47.4% WR) | Profit: 0.00062 | Loss: 0.00033
+2025-11-27 13:25:08,086 | 🕯️ CIERRE DE VELA: 2025-11-27 18:20:00
+2025-11-27 13:25:08,089 | 📊 ❌ PERDIDA (Buy) | Movimiento: 0.00000 | Racha pérdidas: 1
+2025-11-27 13:25:09,008 | 🔄 Modelo actualizado.
+2025-11-27 13:25:09,041 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 97.3%
+2025-11-27 13:30:01,447 | 🕯️ CIERRE DE VELA: 2025-11-27 18:25:00
+2025-11-27 13:30:01,449 | 📊 ✅ GANADA (Buy) | Movimiento: 0.00015 | Racha pérdidas: 0
+2025-11-27 13:30:02,364 | 🔄 Modelo actualizado.
+2025-11-27 13:30:02,396 | 🔮 PREDICCIÓN: ⚪ ESPERAR | Confianza: 58.4%
+2025-11-27 13:35:04,160 | 🕯️ CIERRE DE VELA: 2025-11-27 18:30:00
+2025-11-27 13:35:04,162 | 📊 ❌ PERDIDA (Buy) | Movimiento: -0.00013 | Racha pérdidas: 1
+2025-11-27 13:35:05,206 | 🔄 Modelo actualizado.
+2025-11-27 13:35:05,240 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 97.7%
+2025-11-27 13:40:05,222 | 🕯️ CIERRE DE VELA: 2025-11-27 18:35:00
+2025-11-27 13:40:05,224 | 📊 ✅ GANADA (Buy) | Movimiento: 0.00002 | Racha pérdidas: 0
+2025-11-27 13:40:06,176 | 🔄 Modelo actualizado.
+2025-11-27 13:40:06,209 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 96.2%
+2025-11-27 13:45:00,748 | 🕯️ CIERRE DE VELA: 2025-11-27 18:40:00
+2025-11-27 13:45:00,751 | 📊 ❌ PERDIDA (Buy) | Movimiento: -0.00013 | Racha pérdidas: 1
+2025-11-27 13:45:01,636 | 🔄 Modelo actualizado.
+2025-11-27 13:45:01,669 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 63.0%
+2025-11-27 13:50:00,862 | 🕯️ CIERRE DE VELA: 2025-11-27 18:45:00
+2025-11-27 13:50:00,864 | 📊 ❌ PERDIDA (Sell) | Movimiento: 0.00005 | Racha pérdidas: 2
+2025-11-27 13:50:01,937 | 🔄 Modelo actualizado.
+2025-11-27 13:50:01,968 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 65.5%
+2025-11-27 13:55:03,068 | 🕯️ CIERRE DE VELA: 2025-11-27 18:50:00
+2025-11-27 13:55:03,072 | 📊 ✅ GANADA (Buy) | Movimiento: 0.00001 | Racha pérdidas: 0
+2025-11-27 13:55:04,104 | 🔄 Modelo actualizado.
+2025-11-27 13:55:04,134 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 92.5%
+2025-11-27 14:00:00,586 | 🕯️ CIERRE DE VELA: 2025-11-27 18:55:00
+2025-11-27 14:00:00,588 | 📊 ✅ GANADA (Buy) | Movimiento: 0.00012 | Racha pérdidas: 0
+2025-11-27 14:00:01,721 | 🔄 Modelo actualizado.
+2025-11-27 14:00:01,750 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 98.2%
+2025-11-27 14:05:49,549 | 🕯️ CIERRE DE VELA: 2025-11-27 19:00:00
+2025-11-27 14:05:49,551 | 📊 ✅ GANADA (Sell) | Movimiento: -0.00024 | Racha pérdidas: 0
+2025-11-27 14:05:50,654 | 🔄 Modelo actualizado.
+2025-11-27 14:05:50,688 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 99.9%
+2025-11-27 14:10:02,215 | 🕯️ CIERRE DE VELA: 2025-11-27 19:05:00
+2025-11-27 14:10:02,217 | 📊 ❌ PERDIDA (Buy) | Movimiento: -0.00021 | Racha pérdidas: 1
+2025-11-27 14:10:03,392 | 🔄 Modelo actualizado.
+2025-11-27 14:10:03,427 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 95.4%
+2025-11-27 14:10:03,427 | 📈 STATS: 14/29 (48.3% WR) | Profit: 0.00068 | Loss: 0.00075
+2025-11-27 14:15:02,140 | 🕯️ CIERRE DE VELA: 2025-11-27 19:10:00
+2025-11-27 14:15:02,142 | 📊 ❌ PERDIDA (Buy) | Movimiento: -0.00005 | Racha pérdidas: 2
+2025-11-27 14:15:03,309 | 🔄 Modelo actualizado.
+2025-11-27 14:15:03,342 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 97.9%
+2025-11-27 14:20:02,943 | 🕯️ CIERRE DE VELA: 2025-11-27 19:15:00
+2025-11-27 14:20:02,944 | 📊 ❌ PERDIDA (Buy) | Movimiento: -0.00004 | Racha pérdidas: 3
+2025-11-27 14:20:04,372 | 🔄 Modelo actualizado.
+2025-11-27 14:20:04,410 |    ⚠️ Ajuste por racha de pérdidas: Confianza reducida a 80.0%
+2025-11-27 14:20:04,411 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 80.0%
+2025-11-27 14:25:04,306 | 🕯️ CIERRE DE VELA: 2025-11-27 19:20:00
+2025-11-27 14:25:04,308 | 📊 ❌ PERDIDA (Buy) | Movimiento: -0.00010 | Racha pérdidas: 4
+2025-11-27 14:25:05,815 | 🔄 Modelo actualizado.
+2025-11-27 14:25:05,848 |    ⚠️ Ajuste por racha de pérdidas: Confianza reducida a 80.0%
+2025-11-27 14:25:05,848 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 80.0%
+2025-11-27 14:30:00,551 | 🕯️ CIERRE DE VELA: 2025-11-27 19:25:00
+2025-11-27 14:30:00,556 | 📊 ✅ GANADA (Buy) | Movimiento: 0.00007 | Racha pérdidas: 0
+2025-11-27 14:30:01,840 | 🔄 Modelo actualizado.
+2025-11-27 14:30:01,871 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%
+2025-11-27 14:35:15,015 | 🕯️ CIERRE DE VELA: 2025-11-27 19:30:00
+2025-11-27 14:35:15,018 | 📊 ✅ GANADA (Buy) | Movimiento: 0.00004 | Racha pérdidas: 0
+2025-11-27 14:35:16,533 | 🔄 Modelo actualizado.
+2025-11-27 14:35:16,565 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%
+2025-11-27 14:40:29,053 | 🕯️ CIERRE DE VELA: 2025-11-27 19:35:00
+2025-11-27 14:40:29,057 | 📊 ❌ PERDIDA (Buy) | Movimiento: -0.00004 | Racha pérdidas: 1
+2025-11-27 14:40:30,652 | 🔄 Modelo actualizado.
+2025-11-27 14:40:30,687 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%
