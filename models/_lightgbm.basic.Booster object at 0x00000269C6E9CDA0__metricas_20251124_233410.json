@@ -1,7 +1,0 @@
-{
-    "train_accuracy": 0.7212121212121212,
-    "test_accuracy": 0.6253471345619793,
-    "num_features": 71,
-    "num_samples": 19801,
-    "fecha_entrenamiento": "2025-11-24 23:34:10"
-}

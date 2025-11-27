@@ -1,0 +1,248 @@
+2025-11-26 21:08:11,067 | ✅ Conectado a EURUSD
+2025-11-26 21:08:11,070 | 🧠 Entrenamiento inicial (sin reglas, aprendizaje puro)...
+2025-11-26 21:08:13,436 | ✅ Cerebro entrenado (aprendió de 5000 velas).
+2025-11-26 21:08:13,438 | ⏳ Esperando cierre de vela... (Última: 2025-11-27 02:05:00)
+2025-11-26 21:10:00,596 | 🕯️ CIERRE: 2025-11-27 02:05:00
+2025-11-26 21:10:01,112 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 21:10:01,144 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 72.7%
+2025-11-26 21:15:12,389 | 🕯️ CIERRE: 2025-11-27 02:10:00
+2025-11-26 21:15:12,392 | 📊 ❌ LOSS (Buy) | Mov: -0.00014 | Recompensa: -1.40
+2025-11-26 21:15:12,961 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 21:15:12,992 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 79.5%
+2025-11-26 21:20:00,830 | 🕯️ CIERRE: 2025-11-27 02:15:00
+2025-11-26 21:20:00,833 | 📊 ✅ WIN (Sell) | Mov: -0.00017 | Recompensa: 1.70
+2025-11-26 21:20:01,549 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 21:20:01,578 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 66.7%
+2025-11-26 21:25:02,001 | 🕯️ CIERRE: 2025-11-27 02:20:00
+2025-11-26 21:25:02,003 | 📊 ❌ LOSS (Sell) | Mov: 0.00010 | Recompensa: -1.00
+2025-11-26 21:25:02,733 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 21:25:02,762 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 78.7%
+2025-11-26 21:30:07,737 | 🕯️ CIERRE: 2025-11-27 02:25:00
+2025-11-26 21:30:07,740 | 📊 ❌ LOSS (Sell) | Mov: 0.00019 | Recompensa: -1.90
+2025-11-26 21:30:08,532 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 21:30:08,563 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 99.0%
+2025-11-26 21:35:08,303 | 🕯️ CIERRE: 2025-11-27 02:30:00
+2025-11-26 21:35:08,305 | 📊 ❌ LOSS (Buy) | Mov: -0.00006 | Recompensa: -0.60
+2025-11-26 21:35:09,039 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 21:35:09,072 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 85.0%
+2025-11-26 21:37:25,404 | 🛑 Bot detenido
+2025-11-26 21:37:25,405 | 📈 STATS: 1/5 (20.0% WR) | PF: 0.35 | Recompensa Total: -3.20
+2025-11-26 21:38:11,365 | ✅ Conectado a EURUSD
+2025-11-26 21:38:11,368 | 🧠 Entrenamiento inicial (sin reglas, aprendizaje puro)...
+2025-11-26 21:38:13,974 | ✅ Cerebro entrenado (aprendió de 5000 velas).
+2025-11-26 21:38:13,975 | ⏳ Esperando cierre de vela... (Última: 2025-11-27 02:35:00)
+2025-11-26 21:40:02,131 | 🕯️ CIERRE: 2025-11-27 02:35:00
+2025-11-26 21:40:02,906 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 21:40:02,938 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 66.5%
+2025-11-26 21:45:01,118 | 🕯️ CIERRE: 2025-11-27 02:40:00
+2025-11-26 21:45:01,120 | 📊 ✅ WIN (Sell) | Mov: -0.00001 | Recompensa: 0.10
+2025-11-26 21:45:01,859 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 21:45:01,889 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 90.7%
+2025-11-26 21:50:00,640 | 🕯️ CIERRE: 2025-11-27 02:45:00
+2025-11-26 21:50:00,643 | 📊 ❌ LOSS (Sell) | Mov: 0.00010 | Recompensa: -1.00
+2025-11-26 21:50:01,415 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 21:50:01,448 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 93.9%
+2025-11-26 21:55:00,491 | 🕯️ CIERRE: 2025-11-27 02:50:00
+2025-11-26 21:55:00,492 | 📊 ✅ WIN (Buy) | Mov: 0.00010 | Recompensa: 1.00
+2025-11-26 21:55:01,212 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 21:55:01,245 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 97.3%
+2025-11-26 22:00:00,761 | 🕯️ CIERRE: 2025-11-27 02:55:00
+2025-11-26 22:00:00,763 | 📊 ❌ LOSS (Buy) | Mov: -0.00023 | Recompensa: -2.30
+2025-11-26 22:00:01,520 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 22:00:01,552 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 92.3%
+2025-11-26 22:05:01,302 | 🕯️ CIERRE: 2025-11-27 03:00:00
+2025-11-26 22:05:01,305 | 📊 ✅ WIN (Buy) | Mov: 0.00022 | Recompensa: 2.20
+2025-11-26 22:05:02,116 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 22:05:02,150 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%
+2025-11-26 22:10:01,003 | 🕯️ CIERRE: 2025-11-27 03:05:00
+2025-11-26 22:10:01,005 | 📊 ✅ WIN (Buy) | Mov: 0.00001 | Recompensa: 0.10
+2025-11-26 22:10:01,703 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 22:10:01,735 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 99.4%
+2025-11-26 22:15:00,557 | 🕯️ CIERRE: 2025-11-27 03:10:00
+2025-11-26 22:15:00,560 | 📊 ✅ WIN (Buy) | Mov: 0.00011 | Recompensa: 1.10
+2025-11-26 22:15:01,301 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 22:15:01,337 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%
+2025-11-26 22:20:01,474 | 🕯️ CIERRE: 2025-11-27 03:15:00
+2025-11-26 22:20:01,476 | 📊 ❌ LOSS (Buy) | Mov: -0.00043 | Recompensa: -4.30
+2025-11-26 22:20:02,259 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 22:20:02,289 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%
+2025-11-26 22:25:01,702 | 🕯️ CIERRE: 2025-11-27 03:20:00
+2025-11-26 22:25:01,704 | 📊 ✅ WIN (Buy) | Mov: 0.00009 | Recompensa: 0.90
+2025-11-26 22:25:02,584 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 22:25:02,614 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%
+2025-11-26 22:25:02,615 | 📈 STATS: 6/9 (66.7% WR) | PF: 0.71 | Recompensa Total: -2.20
+2025-11-26 22:30:00,586 | 🕯️ CIERRE: 2025-11-27 03:25:00
+2025-11-26 22:30:00,589 | 📊 ✅ WIN (Buy) | Mov: 0.00038 | Recompensa: 3.80
+2025-11-26 22:30:01,359 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 22:30:01,390 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 99.7%
+2025-11-26 22:35:04,732 | 🕯️ CIERRE: 2025-11-27 03:30:00
+2025-11-26 22:35:04,737 | 📊 ❌ LOSS (Buy) | Mov: -0.00003 | Recompensa: -0.30
+2025-11-26 22:35:05,444 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 22:35:05,479 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 68.2%
+2025-11-26 22:40:02,246 | 🕯️ CIERRE: 2025-11-27 03:35:00
+2025-11-26 22:40:02,250 | 📊 ✅ WIN (Sell) | Mov: -0.00010 | Recompensa: 1.00
+2025-11-26 22:40:02,935 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 22:40:02,965 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 99.9%
+2025-11-26 22:45:00,603 | 🕯️ CIERRE: 2025-11-27 03:40:00
+2025-11-26 22:45:00,605 | 📊 ❌ LOSS (Sell) | Mov: 0.00011 | Recompensa: -1.10
+2025-11-26 22:45:01,219 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 22:45:01,255 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 100.0%
+2025-11-26 22:50:01,294 | 🕯️ CIERRE: 2025-11-27 03:45:00
+2025-11-26 22:50:01,296 | 📊 ❌ LOSS (Sell) | Mov: 0.00054 | Recompensa: -5.40
+2025-11-26 22:50:01,673 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 22:50:01,706 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 100.0%
+2025-11-26 22:55:00,560 | 🕯️ CIERRE: 2025-11-27 03:50:00
+2025-11-26 22:55:00,563 | 📊 ✅ WIN (Sell) | Mov: -0.00005 | Recompensa: 0.50
+2025-11-26 22:55:00,862 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 22:55:00,899 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%
+2025-11-26 23:00:00,539 | 🕯️ CIERRE: 2025-11-27 03:55:00
+2025-11-26 23:00:00,541 | 📊 ❌ LOSS (Buy) | Mov: -0.00020 | Recompensa: -2.00
+2025-11-26 23:00:00,929 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 23:00:00,963 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 100.0%
+2025-11-26 23:05:01,700 | 🕯️ CIERRE: 2025-11-27 04:00:00
+2025-11-26 23:05:01,701 | 📊 ❌ LOSS (Sell) | Mov: 0.00009 | Recompensa: -0.90
+2025-11-26 23:05:02,081 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 23:05:02,118 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 99.9%
+2025-11-26 23:10:01,201 | 🕯️ CIERRE: 2025-11-27 04:05:00
+2025-11-26 23:10:01,204 | 📊 ❌ LOSS (Sell) | Mov: 0.00014 | Recompensa: -1.40
+2025-11-26 23:10:01,608 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 23:10:01,643 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%
+2025-11-26 23:15:03,733 | 🕯️ CIERRE: 2025-11-27 04:10:00
+2025-11-26 23:15:03,735 | 📊 ❌ LOSS (Buy) | Mov: -0.00014 | Recompensa: -1.40
+2025-11-26 23:15:04,136 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 23:15:04,215 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%
+2025-11-26 23:15:04,215 | 📈 STATS: 9/19 (47.4% WR) | PF: 0.53 | Recompensa Total: -9.40
+2025-11-26 23:20:00,549 | 🕯️ CIERRE: 2025-11-27 04:15:00
+2025-11-26 23:20:00,552 | 📊 ❌ LOSS (Buy) | Mov: -0.00025 | Recompensa: -2.50
+2025-11-26 23:20:01,097 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 23:20:01,145 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%
+2025-11-26 23:25:01,026 | 🕯️ CIERRE: 2025-11-27 04:20:00
+2025-11-26 23:25:01,029 | 📊 ✅ WIN (Buy) | Mov: 0.00014 | Recompensa: 1.40
+2025-11-26 23:25:01,418 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 23:25:01,455 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 100.0%
+2025-11-26 23:25:12,920 | 🛑 Bot detenido
+2025-11-26 23:25:12,921 | 📈 STATS: 10/21 (47.6% WR) | PF: 0.54 | Recompensa Total: -10.50
+2025-11-26 23:25:44,622 | ✅ Conectado a EURUSD
+2025-11-26 23:25:44,626 | 🧠 Entrenamiento inicial (sin reglas, aprendizaje puro)...
+2025-11-26 23:25:47,320 | ✅ Cerebro entrenado (aprendió de 5000 velas).
+2025-11-26 23:25:47,321 | ⏳ Esperando cierre de vela... (Última: 2025-11-27 04:25:00)
+2025-11-26 23:30:01,011 | 🕯️ CIERRE: 2025-11-27 04:25:00
+2025-11-26 23:30:01,743 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 23:30:01,781 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 84.6%
+2025-11-26 23:35:05,556 | 🕯️ CIERRE: 2025-11-27 04:30:00
+2025-11-26 23:35:05,558 | 📊 ❌ LOSS (Sell) | Mov: 0.00010 | Recompensa: -1.00
+2025-11-26 23:35:06,299 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 23:35:06,330 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 90.1%
+2025-11-26 23:40:00,897 | 🕯️ CIERRE: 2025-11-27 04:35:00
+2025-11-26 23:40:00,907 | 📊 ✅ WIN (Buy) | Mov: 0.00016 | Recompensa: 1.60
+2025-11-26 23:40:01,635 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 23:40:01,666 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 99.6%
+2025-11-26 23:45:06,576 | 🕯️ CIERRE: 2025-11-27 04:40:00
+2025-11-26 23:45:06,580 | 📊 ❌ LOSS (Buy) | Mov: -0.00005 | Recompensa: -0.50
+2025-11-26 23:45:07,347 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 23:45:07,380 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 93.8%
+2025-11-26 23:50:00,451 | 🕯️ CIERRE: 2025-11-27 04:45:00
+2025-11-26 23:50:00,454 | 📊 ❌ LOSS (Buy) | Mov: -0.00020 | Recompensa: -2.00
+2025-11-26 23:50:01,204 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 23:50:01,233 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 97.2%
+2025-11-26 23:55:00,572 | 🕯️ CIERRE: 2025-11-27 04:50:00
+2025-11-26 23:55:00,575 | 📊 ❌ LOSS (Buy) | Mov: -0.00046 | Recompensa: -4.60
+2025-11-26 23:55:01,346 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-26 23:55:01,381 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 98.8%
+2025-11-27 00:00:00,674 | 🕯️ CIERRE: 2025-11-27 04:55:00
+2025-11-27 00:00:00,678 | 📊 ❌ LOSS (Buy) | Mov: -0.00018 | Recompensa: -1.80
+2025-11-27 00:00:01,496 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 00:00:01,538 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 99.9%
+2025-11-27 00:05:03,070 | 🕯️ CIERRE: 2025-11-27 05:00:00
+2025-11-27 00:05:03,073 | 📊 ❌ LOSS (Sell) | Mov: 0.00020 | Recompensa: -2.00
+2025-11-27 00:05:04,168 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 00:05:04,200 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%
+2025-11-27 00:10:02,806 | 🕯️ CIERRE: 2025-11-27 05:05:00
+2025-11-27 00:10:02,810 | 📊 ❌ LOSS (Buy) | Mov: -0.00002 | Recompensa: -0.20
+2025-11-27 00:10:03,746 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 00:10:03,779 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%
+2025-11-27 00:15:27,162 | 🕯️ CIERRE: 2025-11-27 05:10:00
+2025-11-27 00:15:27,166 | 📊 ❌ LOSS (Buy) | Mov: -0.00021 | Recompensa: -2.10
+2025-11-27 00:15:28,149 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 00:15:28,186 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%
+2025-11-27 00:15:28,186 | 📈 STATS: 1/9 (11.1% WR) | PF: 0.11 | Recompensa Total: -12.60
+2025-11-27 00:20:00,953 | 🕯️ CIERRE: 2025-11-27 05:15:00
+2025-11-27 00:20:00,959 | 📊 ✅ WIN (Buy) | Mov: 0.00007 | Recompensa: 0.70
+2025-11-27 00:20:02,192 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 00:20:02,227 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%
+2025-11-27 00:25:05,958 | 🕯️ CIERRE: 2025-11-27 05:20:00
+2025-11-27 00:25:05,959 | 📊 ❌ LOSS (Buy) | Mov: -0.00008 | Recompensa: -0.80
+2025-11-27 00:25:07,093 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 00:25:07,125 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 100.0%
+2025-11-27 00:30:00,791 | 🕯️ CIERRE: 2025-11-27 05:25:00
+2025-11-27 00:30:00,794 | 📊 ✅ WIN (Sell) | Mov: -0.00015 | Recompensa: 1.50
+2025-11-27 00:30:01,932 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 00:30:01,963 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 100.0%
+2025-11-27 11:48:21,639 | ✅ Conectado a EURUSD
+2025-11-27 11:48:21,645 | 🧠 Entrenamiento inicial (sin reglas, aprendizaje puro)...
+2025-11-27 11:48:34,126 | ✅ Cerebro entrenado (aprendió de 5000 velas).
+2025-11-27 11:48:34,128 | ⏳ Esperando cierre de vela... (Última: 2025-11-27 05:30:00)
+2025-11-27 11:48:34,128 | 🕯️ CIERRE: 2025-11-27 05:30:00
+2025-11-27 11:48:35,091 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 11:48:35,156 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 67.4%
+2025-11-27 11:50:01,016 | 🕯️ CIERRE: 2025-11-27 16:45:00
+2025-11-27 11:50:01,017 | 📊 ❌ LOSS (Sell) | Mov: 0.00011 | Recompensa: -1.10
+2025-11-27 11:50:02,008 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 11:50:02,048 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 95.9%
+2025-11-27 11:55:00,789 | 🕯️ CIERRE: 2025-11-27 16:50:00
+2025-11-27 11:55:00,792 | 📊 ✅ WIN (Sell) | Mov: -0.00011 | Recompensa: 1.10
+2025-11-27 11:55:01,777 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 11:55:01,817 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 71.2%
+2025-11-27 12:00:00,685 | 🕯️ CIERRE: 2025-11-27 16:55:00
+2025-11-27 12:00:00,689 | 📊 ❌ LOSS (Sell) | Mov: 0.00001 | Recompensa: -0.10
+2025-11-27 12:00:01,712 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 12:00:01,753 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 92.3%
+2025-11-27 12:05:00,734 | 🕯️ CIERRE: 2025-11-27 17:00:00
+2025-11-27 12:05:00,736 | 📊 ❌ LOSS (Sell) | Mov: 0.00018 | Recompensa: -1.80
+2025-11-27 12:05:01,851 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 12:05:01,884 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 61.7%
+2025-11-27 12:10:00,704 | 🕯️ CIERRE: 2025-11-27 17:05:00
+2025-11-27 12:10:00,706 | 📊 ❌ LOSS (Sell) | Mov: 0.00009 | Recompensa: -0.90
+2025-11-27 12:10:01,747 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 12:10:01,784 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 79.0%
+2025-11-27 12:15:03,374 | 🕯️ CIERRE: 2025-11-27 17:10:00
+2025-11-27 12:15:03,376 | 📊 ❌ LOSS (Sell) | Mov: 0.00010 | Recompensa: -1.00
+2025-11-27 12:15:04,408 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 12:15:04,447 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 99.9%
+2025-11-27 12:20:00,653 | 🕯️ CIERRE: 2025-11-27 17:15:00
+2025-11-27 12:20:00,655 | 📊 ❌ LOSS (Sell) | Mov: 0.00010 | Recompensa: -1.00
+2025-11-27 12:20:01,748 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 12:20:01,784 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 68.5%
+2025-11-27 12:25:00,813 | 🕯️ CIERRE: 2025-11-27 17:20:00
+2025-11-27 12:25:00,814 | 📊 ✅ WIN (Sell) | Mov: -0.00020 | Recompensa: 2.00
+2025-11-27 12:25:01,888 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 12:25:01,920 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 77.7%
+2025-11-27 12:30:00,642 | 🕯️ CIERRE: 2025-11-27 17:25:00
+2025-11-27 12:30:00,646 | 📊 ✅ WIN (Sell) | Mov: -0.00003 | Recompensa: 0.30
+2025-11-27 12:30:01,715 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 12:30:01,750 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 98.1%
+2025-11-27 12:30:01,751 | 📈 STATS: 3/9 (33.3% WR) | PF: 0.58 | Recompensa Total: -2.50
+2025-11-27 12:35:01,195 | 🕯️ CIERRE: 2025-11-27 17:30:00
+2025-11-27 12:35:01,195 | 📊 ❌ LOSS (Buy) | Mov: -0.00020 | Recompensa: -2.00
+2025-11-27 12:35:02,218 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 12:35:02,256 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 92.0%
+2025-11-27 12:40:01,830 | 🕯️ CIERRE: 2025-11-27 17:35:00
+2025-11-27 12:40:01,833 | 📊 ❌ LOSS (Buy) | Mov: -0.00024 | Recompensa: -2.40
+2025-11-27 12:40:02,922 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 12:40:02,964 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 98.7%
+2025-11-27 12:45:00,792 | 🕯️ CIERRE: 2025-11-27 17:40:00
+2025-11-27 12:45:00,795 | 📊 ✅ WIN (Buy) | Mov: 0.00034 | Recompensa: 3.40
+2025-11-27 12:45:01,836 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 12:45:01,879 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 82.9%
+2025-11-27 12:50:09,338 | 🕯️ CIERRE: 2025-11-27 17:45:00
+2025-11-27 12:50:09,340 | 📊 ✅ WIN (Sell) | Mov: -0.00010 | Recompensa: 1.00
+2025-11-27 12:50:10,321 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 12:50:10,367 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 89.4%
+2025-11-27 12:55:00,635 | 🕯️ CIERRE: 2025-11-27 17:50:00
+2025-11-27 12:55:00,637 | 📊 ✅ WIN (Sell) | Mov: -0.00024 | Recompensa: 2.40
+2025-11-27 12:55:01,442 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 12:55:01,482 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 99.4%
+2025-11-27 13:00:00,832 | 🕯️ CIERRE: 2025-11-27 17:55:00
+2025-11-27 13:00:00,916 | 📊 ✅ WIN (Buy) | Mov: 0.00006 | Recompensa: 0.60
+2025-11-27 13:00:01,234 | 🔄 Modelo actualizado (aprendió de sus errores).
+2025-11-27 13:00:01,277 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%

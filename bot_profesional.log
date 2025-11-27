@@ -249,3 +249,37 @@
 2025-11-26 18:15:07,281 [INFO] ✅ Features técnicas generadas
 2025-11-26 18:15:07,284 [INFO] ✅ Features completas generadas: 28 columnas
 2025-11-26 18:15:07,288 [INFO] 🎯 ANÁLISIS FINALIZADO: Predicción=COMPRAR 🟢 | Confianza=0.82
+2025-11-26 18:20:01,716 [INFO] 🕯️ CIERRE DE VELA DETECTADO: 2025-11-26 23:15:00
+2025-11-26 18:20:01,746 [INFO] ✅ Features técnicas generadas
+2025-11-26 18:20:01,746 [INFO] ✅ Features completas generadas: 29 columnas
+2025-11-26 18:20:01,774 [INFO] 🧠 Cerebro actualizado con la última vela.
+2025-11-26 18:20:01,794 [INFO] ✅ Features técnicas generadas
+2025-11-26 18:20:01,796 [INFO] ✅ Features completas generadas: 28 columnas
+2025-11-26 18:20:01,800 [INFO] 🎯 ANÁLISIS FINALIZADO: Predicción=COMPRAR 🟢 | Confianza=0.70
+2025-11-26 18:25:02,846 [INFO] 🕯️ CIERRE DE VELA DETECTADO: 2025-11-26 23:20:00
+2025-11-26 18:25:02,873 [INFO] ✅ Features técnicas generadas
+2025-11-26 18:25:02,875 [INFO] ✅ Features completas generadas: 29 columnas
+2025-11-26 18:25:02,893 [INFO] 🧠 Cerebro actualizado con la última vela.
+2025-11-26 18:25:02,919 [INFO] ✅ Features técnicas generadas
+2025-11-26 18:25:02,922 [INFO] ✅ Features completas generadas: 28 columnas
+2025-11-26 18:25:02,928 [INFO] 🎯 ANÁLISIS FINALIZADO: Predicción=COMPRAR 🟢 | Confianza=0.68
+2025-11-26 18:30:03,810 [INFO] 🕯️ CIERRE DE VELA DETECTADO: 2025-11-26 23:25:00
+2025-11-26 18:30:03,850 [INFO] ✅ Features técnicas generadas
+2025-11-26 18:30:03,850 [INFO] ✅ Features completas generadas: 29 columnas
+2025-11-26 18:30:03,870 [INFO] 🧠 Cerebro actualizado con la última vela.
+2025-11-26 18:30:03,896 [INFO] ✅ Features técnicas generadas
+2025-11-26 18:30:03,897 [INFO] ✅ Features completas generadas: 28 columnas
+2025-11-26 18:30:03,902 [INFO] 🎯 ANÁLISIS FINALIZADO: Predicción=COMPRAR 🟢 | Confianza=0.72
+2025-11-27 00:29:02,448 [INFO] ✅ Conectado a EURUSD
+2025-11-27 00:29:02,468 [INFO] 🧠 Inicializando cerebro con datos históricos...
+2025-11-27 00:29:02,529 [INFO] ✅ Features técnicas generadas
+2025-11-27 00:29:02,532 [INFO] ✅ Features completas generadas: 28 columnas
+2025-11-27 00:29:03,034 [INFO] 🧠 Cerebro inicializado y listo.
+2025-11-27 00:29:03,035 [INFO] ⏳ Esperando cierre de vela actual (2025-11-27 05:25:00)...
+2025-11-27 00:30:00,754 [INFO] 🕯️ CIERRE DE VELA DETECTADO: 2025-11-27 05:25:00
+2025-11-27 00:30:00,802 [INFO] ✅ Features técnicas generadas
+2025-11-27 00:30:00,804 [INFO] ✅ Features completas generadas: 29 columnas
+2025-11-27 00:30:01,199 [INFO] 🧠 Cerebro actualizado con la última vela.
+2025-11-27 00:30:01,221 [INFO] ✅ Features técnicas generadas
+2025-11-27 00:30:01,224 [INFO] ✅ Features completas generadas: 28 columnas
+2025-11-27 00:30:01,228 [INFO] 🎯 ANÁLISIS FINALIZADO: Predicción=COMPRAR 🟢 | Confianza=0.67

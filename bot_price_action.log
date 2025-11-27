@@ -1,0 +1,105 @@
+2025-11-26 19:44:01,656 | ✅ Conectado a EURUSD
+2025-11-26 19:44:01,664 | 🧠 Entrenamiento inicial con Price Action...
+2025-11-26 19:44:04,754 | ✅ Cerebro entrenado con Price Action.
+2025-11-26 19:44:04,755 | ⏳ Esperando cierre de vela... (Última: 2025-11-27 00:40:00)
+2025-11-26 19:45:08,469 | 🕯️ CIERRE: 2025-11-27 00:40:00
+2025-11-26 19:45:09,153 | 🔄 Modelo actualizado con Price Action.
+2025-11-26 19:45:09,159 | 📍 Tendencia: ALCISTA | Patrón: NORMAL
+2025-11-26 19:45:09,160 |    🔴 Cerca de RESISTENCIA (Dist: 0.00004)
+2025-11-26 19:45:09,188 | 🔮 PREDICCIÓN: ⚪ ESPERAR | Confianza: 99.1%
+2025-11-26 19:50:51,648 | 🕯️ CIERRE: 2025-11-27 00:45:00
+2025-11-26 19:50:52,770 | 🔄 Modelo actualizado con Price Action.
+2025-11-26 19:50:52,779 | 📍 Tendencia: ALCISTA | Patrón: NORMAL
+2025-11-26 19:50:52,779 |    🔴 Cerca de RESISTENCIA (Dist: 0.00001)
+2025-11-26 19:50:52,843 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 83.5%
+2025-11-26 19:55:03,881 | 🕯️ CIERRE: 2025-11-27 00:50:00
+2025-11-26 19:55:03,885 | 📊 ✅ WIN (Buy) | Mov: 0.00001
+2025-11-26 19:55:04,942 | 🔄 Modelo actualizado con Price Action.
+2025-11-26 19:55:04,949 | 📍 Tendencia: ALCISTA | Patrón: NORMAL
+2025-11-26 19:55:04,952 |    🔴 Cerca de RESISTENCIA (Dist: 0.00002)
+2025-11-26 19:55:05,006 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 98.9%
+2025-11-26 20:00:00,502 | 🕯️ CIERRE: 2025-11-27 00:55:00
+2025-11-26 20:00:00,508 | 📊 ❌ LOSS (Buy) | Mov: -0.00017
+2025-11-26 20:00:01,550 | 🔄 Modelo actualizado con Price Action.
+2025-11-26 20:00:01,561 | 📍 Tendencia: LATERAL | Patrón: NORMAL
+2025-11-26 20:00:01,561 |    🔴 Cerca de RESISTENCIA (Dist: 0.00021)
+2025-11-26 20:00:01,563 |    📊 Precio en CANAL
+2025-11-26 20:00:01,621 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 63.9%
+2025-11-26 20:05:01,421 | 🕯️ CIERRE: 2025-11-27 01:00:00
+2025-11-26 20:05:01,426 | 📊 ❌ LOSS (Sell) | Mov: 0.00034
+2025-11-26 20:05:02,331 | 🔄 Modelo actualizado con Price Action.
+2025-11-26 20:05:02,339 | 📍 Tendencia: ALCISTA | Patrón: NORMAL
+2025-11-26 20:05:02,340 |    🔴 Cerca de RESISTENCIA (Dist: 0.00001)
+2025-11-26 20:05:02,393 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 84.8%
+2025-11-26 20:10:00,833 | 🕯️ CIERRE: 2025-11-27 01:05:00
+2025-11-26 20:10:00,836 | 📊 ✅ WIN (Sell) | Mov: -0.00002
+2025-11-26 20:10:01,826 | 🔄 Modelo actualizado con Price Action.
+2025-11-26 20:10:01,837 | 📍 Tendencia: ALCISTA | Patrón: NORMAL
+2025-11-26 20:10:01,838 |    🔴 Cerca de RESISTENCIA (Dist: 0.00003)
+2025-11-26 20:10:01,892 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 98.3%
+2025-11-26 20:15:17,438 | 🕯️ CIERRE: 2025-11-27 01:10:00
+2025-11-26 20:15:17,440 | 📊 ❌ LOSS (Sell) | Mov: 0.00006
+2025-11-26 20:15:18,419 | 🔄 Modelo actualizado con Price Action.
+2025-11-26 20:15:18,432 | 📍 Tendencia: ALCISTA | Patrón: NORMAL
+2025-11-26 20:15:18,433 |    🔴 Cerca de RESISTENCIA (Dist: 0.00003)
+2025-11-26 20:15:18,484 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 99.9%
+2025-11-26 20:20:00,418 | 🕯️ CIERRE: 2025-11-27 01:15:00
+2025-11-26 20:20:00,424 | 📊 ❌ LOSS (Buy) | Mov: 0.00000
+2025-11-26 20:20:01,428 | 🔄 Modelo actualizado con Price Action.
+2025-11-26 20:20:01,434 | 📍 Tendencia: ALCISTA | Patrón: NORMAL
+2025-11-26 20:20:01,434 |    🔴 Cerca de RESISTENCIA (Dist: 0.00003)
+2025-11-26 20:20:01,492 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 86.3%
+2025-11-26 20:25:02,072 | 🕯️ CIERRE: 2025-11-27 01:20:00
+2025-11-26 20:25:02,076 | 📊 ❌ LOSS (Buy) | Mov: 0.00000
+2025-11-26 20:25:02,980 | 🔄 Modelo actualizado con Price Action.
+2025-11-26 20:25:02,988 | 📍 Tendencia: ALCISTA | Patrón: NORMAL
+2025-11-26 20:25:02,988 |    🔴 Cerca de RESISTENCIA (Dist: 0.00002)
+2025-11-26 20:25:03,044 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%
+2025-11-26 20:32:06,616 | 🕯️ CIERRE: 2025-11-27 01:25:00
+2025-11-26 20:32:06,616 | 📊 ✅ WIN (Buy) | Mov: 0.00003
+2025-11-26 20:32:07,300 | 🔄 Modelo actualizado con Price Action.
+2025-11-26 20:32:07,304 | 📍 Tendencia: ALCISTA | Patrón: NORMAL
+2025-11-26 20:32:07,304 |    🔴 Cerca de RESISTENCIA (Dist: 0.00017)
+2025-11-26 20:32:07,336 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 98.5%
+2025-11-26 20:32:07,336 | 📈 STATS: 3/8 (37.5% WR)
+2025-11-26 20:35:01,226 | 🕯️ CIERRE: 2025-11-27 01:30:00
+2025-11-26 20:35:01,234 | 📊 ❌ LOSS (Sell) | Mov: 0.00003
+2025-11-26 20:35:01,673 | 🔄 Modelo actualizado con Price Action.
+2025-11-26 20:35:01,679 | 📍 Tendencia: ALCISTA | Patrón: NORMAL
+2025-11-26 20:35:01,679 |    🔴 Cerca de RESISTENCIA (Dist: 0.00013)
+2025-11-26 20:35:01,703 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 97.7%
+2025-11-26 20:40:00,743 | 🕯️ CIERRE: 2025-11-27 01:35:00
+2025-11-26 20:40:00,747 | 📊 ✅ WIN (Sell) | Mov: -0.00012
+2025-11-26 20:40:01,346 | 🔄 Modelo actualizado con Price Action.
+2025-11-26 20:40:01,350 | 📍 Tendencia: ALCISTA | Patrón: NORMAL
+2025-11-26 20:40:01,351 |    🔴 Cerca de RESISTENCIA (Dist: 0.00011)
+2025-11-26 20:40:01,375 | 🔮 PREDICCIÓN: 🟢 COMPRAR | Confianza: 100.0%
+2025-11-26 20:45:00,540 | 🕯️ CIERRE: 2025-11-27 01:40:00
+2025-11-26 20:45:00,542 | 📊 ✅ WIN (Buy) | Mov: 0.00017
+2025-11-26 20:45:01,187 | 🔄 Modelo actualizado con Price Action.
+2025-11-26 20:45:01,190 | 📍 Tendencia: ALCISTA | Patrón: NORMAL
+2025-11-26 20:45:01,190 |    🔴 Cerca de RESISTENCIA (Dist: 0.00007)
+2025-11-26 20:45:01,215 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 100.0%
+2025-11-26 20:50:14,313 | 🕯️ CIERRE: 2025-11-27 01:45:00
+2025-11-26 20:50:14,316 | 📊 ❌ LOSS (Sell) | Mov: 0.00014
+2025-11-26 20:50:14,927 | 🔄 Modelo actualizado con Price Action.
+2025-11-26 20:50:14,931 | 📍 Tendencia: ALCISTA | Patrón: NORMAL
+2025-11-26 20:50:14,932 |    🔴 Cerca de RESISTENCIA (Dist: 0.00006)
+2025-11-26 20:50:14,955 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 100.0%
+2025-11-26 20:55:00,907 | 🕯️ CIERRE: 2025-11-27 01:50:00
+2025-11-26 20:55:00,909 | 📊 ❌ LOSS (Sell) | Mov: 0.00002
+2025-11-26 20:55:01,503 | 🔄 Modelo actualizado con Price Action.
+2025-11-26 20:55:01,507 | 📍 Tendencia: ALCISTA | Patrón: NORMAL
+2025-11-26 20:55:01,508 |    🔴 Cerca de RESISTENCIA (Dist: 0.00008)
+2025-11-26 20:55:01,531 | 🔮 PREDICCIÓN: 🔴 VENDER | Confianza: 99.6%
+2025-11-26 21:00:00,520 | 🕯️ CIERRE: 2025-11-27 01:55:00
+2025-11-26 21:00:00,521 | 📊 ❌ LOSS (Sell) | Mov: 0.00002
+2025-11-26 21:00:01,136 | 🔄 Modelo actualizado con Price Action.
+2025-11-26 21:00:01,140 | 📍 Tendencia: ALCISTA | Patrón: NORMAL
+2025-11-26 21:00:01,141 |    🔴 Cerca de RESISTENCIA (Dist: 0.00010)
+2025-11-26 21:00:01,166 | 🔮 PREDICCIÓN: ⚪ ESPERAR | Confianza: 100.0%
+2025-11-26 21:05:00,724 | 🕯️ CIERRE: 2025-11-27 02:00:00
+2025-11-26 21:05:01,353 | 🔄 Modelo actualizado con Price Action.
+2025-11-26 21:05:01,361 | 📍 Tendencia: ALCISTA | Patrón: NORMAL
+2025-11-26 21:05:01,361 |    🔴 Cerca de RESISTENCIA (Dist: 0.00037)
+2025-11-26 21:05:01,388 | 🔮 PREDICCIÓN: ⚪ ESPERAR | Confianza: 100.0%
